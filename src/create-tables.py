@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine, MetaData, select
 import datetime
 from datetime import date, datetime
+from time import time
 from decimal import *
 import csv
 import os 
@@ -172,8 +173,9 @@ def main():
 
 
 if __name__ == "__main__":
+    start = time()
     main()
-
+    print("Processing time %d" % round(time() - start, 2))
 
 """
 Private Functions

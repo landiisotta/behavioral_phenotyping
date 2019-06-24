@@ -8,3 +8,4 @@ indir=$datadir/odf-data-
 level=$1
 
 /Users/ilandi/anaconda3/bin/python -u $projdir/src/create-vocabulary.py $indir $level
+/Users/ilandi/anaconda3/bin/python -u $projdir/src/embeddings.py $indir $level

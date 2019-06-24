@@ -286,3 +286,4 @@ if __name__ == '__main__':
     create_vocabulary(indir=args.indir,
                       outdir=outdir,
                       level=args.level)
+    print("Processing time %d" % round(time() - start, 2))

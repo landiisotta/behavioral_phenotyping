@@ -1,14 +1,18 @@
 import os
 import csv
+import sys
+import argparse
 import pandas as pd
 import numpy as np
+from time import time
+import utils as ut
 
 # create feature dataset, ONLY LEVEL-4
 # impute missing values with mean
 def feature_dataset(datadir):
     # feature list and behavioral ehrs
-    feat_list, idx_to_bt = _load_vocabulary(datadir, '/cohort-vocabulary.csv')
-    behr = _load_behr(datadir, '/cohort-behr.csv', idx_to_bt)
+    feat_list, idx_to_bt = _load_vocabulary(datadir, ut.file_names['vocab'])
+    behr = _load_behr(datadir, ut.file_names['behr'], idx_to_bt)
 
     # split data into time frames
     t_behr = {k: {'F1': {},
@@ -95,7 +99,7 @@ Private Functions
 
 
 def _load_vocabulary(datadir, filename):
-    with open(datadir + filename) as f:
+    with open(os.path.join(datadir, filename)) as f:
         rd = csv.reader(f)
         next(rd)
         feat = set()
@@ -110,7 +114,7 @@ def _load_vocabulary(datadir, filename):
 
 
 def _load_behr(datadir, filename, idx_to_bt):
-    with open(datadir + filename) as f:
+    with open(os.path.join(datadir, filename)) as f:
     rd = csv.reader(f)
     next(rd)
     behr = {}
@@ -137,4 +141,4 @@ if __name__ == '__main__':
 
     start = time()
     feature_dataset(args.datadir)
-    print("Processing time: %d" % time() - start) 
+    print("Processing time: %d" % round(time() - start, 2)) 

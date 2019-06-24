@@ -31,10 +31,14 @@ Level 4: indices and subtest of interest for phenotype profiling.
 Output: data\_folder odf-data-datetime/level-1|2|3|4 
 (cohort-behr.csv, cohort-vocab.csv)
 
-Run with `run_create-vocabulary.sh`, user defined indir, outdir, level (from terminal).
+Run with `run_tokenize-embed.sh`, user defined indir, outdir, level (from terminal).
 
 - `create-feature-data.py`: create dataset with instrument values from level 4
 
 Output: dataframes: long, wide, wide scaled with missing values imputed with mean.
 
-Run with `run_create-feature-data.sh`, user define datadir (data folder level 4).  
+Run with `run_create-feature-data.sh`, user define datadir (data folder level 4).
+
+- `embedding.py`: run TFIDF and GloVe embeddings and save results.
+
+Run with `run_tokenize-embed.sh` (same user-defined variables). 
