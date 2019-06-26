@@ -145,7 +145,7 @@ def main():
     with open(os.path.join(DATA_FOLDER_PATH, data_dir,
                            'person-demographics.csv'), 'w') as f:
         wr = csv.writer(f, delimiter=',', quoting=csv.QUOTE_MINIMAL)
-        wr.writerow(['ID_SUBJ', 'CURRENT_AGE', 'DOB', 'DOFA', 'SEX', 'N_ENC']) # DFOA = date of first assessment
+        wr.writerow(['ID_SUBJ', 'DOB', 'DOFA', 'SEX', 'N_ENC']) # DFOA = date of first assessment
         for s, sd in subj_demographics.items():
             wr.writerow([s] + sd[0][2::] + [len(n_encounter[s])])
 

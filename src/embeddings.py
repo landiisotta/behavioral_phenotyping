@@ -68,15 +68,11 @@ def run_emb(datadir, level=None):
     reducer = TruncatedSVD(n_components=ut.n_dim, random_state=123)
     svd_mtx = reducer.fit_transform(tfidf_mtx)
 
-    # save TFIDF mtx
-    with open(os.path.join(outdir, 'tfidf-mtx.csv'), 'w') as f:
+    # save SVD mtx
+    with open(os.path.join(outdir, 'svd-mtx.csv'), 'w') as f:
         wr = csv.writerow(f)
         for idx, lab in enumerate(id_subj):
-            wr.writerow([lab] + tfidf_mtx[idx])
-    # save SVD transform
-    with open(os.path.join(outdir, 'svd-mtx.csv'), 'w') as f:
-        wr = csv.writer(f)
-        wr.writerows([r for r in svd_mtx])
+            wr.writerow([lab] + svd_mtx[idx])
     print('\n\n')
 
     # GloVe embeddings
@@ -89,7 +85,7 @@ def run_emb(datadir, level=None):
         err = model.train(batch_size=ut.batch_size)
         print("epoch %d, error %.3f" % (epoch, err), flush=True)
 
-    Wemb = model.W + model.ContextW # as suggested by Pennington et al.
+    Wemb = model.W + model.ContextW # as suggested in Pennington et al.
     p_emb = []
     id_list = []
     for id_subj, term in corpus.items():

@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 from time import time
 import utils as ut
+from sklearn.preprocessing import StandardScaler
 
 # create feature dataset, ONLY LEVEL-4
 # impute missing values with mean
@@ -69,7 +70,7 @@ def feature_dataset(datadir):
             tmp_l.extend([e for e in el])
         df_list_wide.append([id_subj] + tmp_l)
     df = pd.DataFrame(df_list, columns=['id_subj', 'time'] + feat)
-    df = df.set_indes('id_subj')
+    df = df.set_index('id_subj')
 
     df_wide = pd.DataFrame(df_list_wide, columns=['id_subj'] + feat_wide)
     df_wide = df_wide.set_index('id_subj')
@@ -79,7 +80,6 @@ def feature_dataset(datadir):
     scaler = StandardScaler()
 
     df_wide_scaled = scaler.fit_transform(df_wide_fi)
-
     df_wide_scaled = pd.DataFrame(df_wide_scaled, columns=list(df_wide_fi.columns))
     df_wide_scaled['id_subj'] = df_wide.index
     df_wide_scaled = df_wide_scaled.set_index('id_subj')
