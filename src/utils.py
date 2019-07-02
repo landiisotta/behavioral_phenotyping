@@ -1,5 +1,9 @@
 import matplotlib
+import os
 
+# address to connect to the database on UniTN server and data folder path to create
+SQLALCHEMY_CONN_STRING = 'mysql+pymysql://odflab:LAB654@192.168.132.114/odflab'
+DATA_FOLDER_PATH = '/Users/ilandi/Documents/behavioral_phenotyping/data/'
 
 """
 Utils file storing parameters
@@ -40,4 +44,3 @@ c_out = ['bisque', 'mintcream', 'cornsilk', 'lavenderblush', 'aliceblue', 'antiq
          'lightslategray', 'lightslategrey', 'lightsteelblue', 'lightyellow', 'linen', 'palegoldenrod', 'palegreen',
          'paleturquoise', 'palevioletred', 'papayawhip', 'peachpuff', 'mistyrose', 'lemonchiffon', 'lightblue',
          'seashell', 'white', 'blanchedalmond', 'oldlace', 'moccasin', 'snow', 'darkgray', 'ivory', 'whitesmoke']
-

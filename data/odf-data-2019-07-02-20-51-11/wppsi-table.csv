@@ -1,0 +1,2 @@
+,id_subj,sex,date_birth,date_ass,age,raw_in,scaled_in,raw_vc,scaled_vc,raw_ar,scaled_ar,raw_si,scaled_si,raw_co,scaled_co,raw_sentences,scaled_sentences,raw_zoo,scaled_zoo,raw_pc,scaled_pc,raw_maze,scaled_maze,raw_geometric-design,scaled_geometric-design,raw_bd,scaled_bd,raw_retest-zoo,scaled_retest-zoo,sumScaled_V,VIQ,sumScaled_P,PIQ,sumScaled_FS,FSIQ
+0,lab0439,Maschio,2004-11-04,2010-09-27,,15,9,28,13,11,7,15,11,13,7,,,44,6,17,11,19,11,14,9,4,3,,,47,96,40,86,87,91
