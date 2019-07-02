@@ -1,3 +1,0 @@
-,id_subj,sex,date_birth,date_ass,age,raw_bd,scaled_bd,raw_si,scaled_si,raw_ds,scaled_ds,raw_mr,scaled_mr,raw_vc,scaled_vc,raw_ar,scaled_ar,raw_ss,scaled_ss,raw_oa,scaled_oa,raw_in,scaled_in,raw_cd,scaled_cd,raw_lns,scaled_lns,raw_fw,scaled_fw,raw_co,scaled_co,raw_ca,scaled_ca,raw_pc,scaled_pc,sumScaled_VC,VCI,sumScaled_PR,PRI,sumScaled_WM,WMI,sumScaled_PS,PSI,sumScaled_FS,FSIQ
-0,lab0135,Maschio,17/09/1997,2018-03-06,,24,4,12,3,13,1,13,6,12,1,4,1,24,6,7,4,5,3,28,2,5.0000000000,1.0000000000,,,,,,,,,7,55,14,67,3,52,8,67,32,49
-1,lab1660,Maschio,02/05/1999,2018-11-16,,56,14,19,8,15,2,23,14,22,5,11,8,20,5,16,11,6,5,60,8,,,,,7.0000000000,2.0000000000,,,,,18,76,39,119,10,72,13,81,80,85

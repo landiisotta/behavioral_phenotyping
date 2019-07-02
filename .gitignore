@@ -1,2 +1,5 @@
 utils.py
 .*/
+*.csv
+*.txt
+*.pkl
