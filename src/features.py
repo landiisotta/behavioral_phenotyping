@@ -2,8 +2,22 @@ import csv
 import os
 import re
 import numpy as np
+import pandas as pd
 from datetime import datetime
 from dataset import data_path
+from sklearn.preprocessing import StandardScaler
+
+
+# Pinfo class to store subjects' demographics
+class Pinfo():
+    def __init__(self,
+                 sex: str,
+                 dob: datetime,
+                 aoa: float):
+        self.sex = sex
+        self.dob = dob
+        self.aoa = aoa
+
 
 """
 Functions:
@@ -26,40 +40,48 @@ def create_tokens(df_dict):
     Return
     ------
     dictionary
-        {keys=pid, values=doa-ordered list(tokens)}
+        {keys=pid, values=[[table_name, Pinfo, doa-ordered list(tokens)]]}
     """
     raw_behr = {}
     for table_name, data in df_dict.items():
         for row in data.itertuples():
             if bool(re.match('ados', table_name)):
-                subj_vec = [table_name] + list(row[2:4]) + [_eval_age(row[3], row[4])] + \
+                subj_vec = [table_name] + \
+                           [Pinfo(row.sex, row.date_birth,
+                                  _eval_age(row.date_birth, row.date_ass))] + \
                            ['::'.join([table_name,
                                        df_dict[table_name].columns[idx - 1],
                                        str(row[idx])]) for idx in range(7, len(row))
                             if row[idx] != '']
             elif bool(re.match('vin|srs', table_name)):
-                subj_vec = [table_name] + list(row[2:4]) + [_eval_age(row[3], row[4])] + \
+                subj_vec = [table_name] + \
+                           [Pinfo(row.sex, row.date_birth,
+                                  _eval_age(row.date_birth, row.date_ass))] + \
                            ['::'.join([table_name,
                                        'caretaker',
                                        df_dict[table_name].columns[idx - 1],
                                        str(row[idx])]) for idx in range(7, len(row))
                             if row[idx] != '']
             elif bool(re.match('psi', table_name)):
-                subj_vec = [table_name] + list(row[2:4]) + [_eval_age(row[3], row[4])] + \
+                subj_vec = [table_name] + \
+                           [Pinfo(row.sex, row.date_birth,
+                                  _eval_age(row.date_birth, row.date_ass))] + \
                            ['::'.join([table_name,
                                        row[6],
                                        df_dict[table_name].columns[idx - 1],
                                        str(row[idx])]) for idx in range(7, len(row))
                             if row[idx] != '']
             elif not (bool(re.match('emotional', table_name))):
-                subj_vec = [table_name] + list(row[2:4]) + [_eval_age(row[3], row[4])] + \
+                subj_vec = [table_name] + \
+                           [Pinfo(row.sex, row.date_birth,
+                                  _eval_age(row.date_birth, row.date_ass))] + \
                            ['::'.join([table_name,
                                        df_dict[table_name].columns[idx - 1],
                                        str(row[idx])]) for idx in range(7, len(row))
                             if row[idx] != '']
             raw_behr.setdefault(row[1], list()).append(subj_vec)
     for string_vec in raw_behr.values():
-        string_vec.sort(key=lambda x: x[3])
+        string_vec.sort(key=lambda x: x[1].aoa)
 
     seq_len = np.array([len(ins) for ins in raw_behr.values()])
     print("Average length of behavioral sequences: {0:.3f}\n".format(np.mean(seq_len)))
@@ -71,13 +93,13 @@ def behr_level1(raw_behr):
     """
     Parameters
     ----------
-    behr (dictionary)
+    raw_behr (dictionary)
         {keys=pid, values=list(ins_name, info, tokens)}
 
     Return
     ------
     dictionary
-        {keys=pid, values=list(filtered tokens wrt level)}
+        {keys=pid, values=[[Pinfo, filtered tokens wrt level]]}
     """
     os.makedirs(os.path.join(data_path, 'level-1'),
                 exist_ok=True)
@@ -88,18 +110,18 @@ def behr_level1(raw_behr):
             if bool(re.match('leit', el[0])):
                 tkn_vec_rid = list(filter(lambda x: bool(re.search('scaled',
                                                                    str(x))), el))
-                tkn_vec_rid = el[1:4] + list(map(lambda x: '::'.join(['leiter'] +
+                tkn_vec_rid = [el[1]] + list(map(lambda x: '::'.join(['leiter'] +
                                                                      x.split('::')[1:]),
                                                  tkn_vec_rid))
             elif bool(re.match('vinel', el[0])):
                 tkn_vec_rid = list(filter(lambda x: bool(re.search('scaled',
                                                                    str(x))), el))
-                tkn_vec_rid = el[1:4] + list(map(lambda x: '::'.join(['vineland'] + x.split('::')[1:]),
+                tkn_vec_rid = [el[1]] + list(map(lambda x: '::'.join(['vineland'] + x.split('::')[1:]),
                                                  tkn_vec_rid))
             elif bool(re.match('wa|wi|wpp', el[0])):
                 tkn_vec_rid = list(filter(lambda x: bool(re.search('scaled_(bd|si|mr|vc::|ss|oa|in|cd|co|pc::|pcn::)',
                                                                    str(x))), el))
-                tkn_vec_rid = el[1:4] + list(map(lambda x: '::'.join(['wechsler',
+                tkn_vec_rid = [el[1]] + list(map(lambda x: '::'.join(['wechsler',
                                                                       x.split('_')[1]]),
                                                  tkn_vec_rid))
             elif bool(re.match('ados-2modulo[1|toddler]', el[0])):
@@ -118,7 +140,7 @@ def behr_level1(raw_behr):
                             tkn_vec_rid[idx] = t
                     except IndexError:
                         pass
-                tkn_vec_rid = el[1:4] + tkn_vec_rid
+                tkn_vec_rid = [el[1]] + tkn_vec_rid
             elif bool(re.match('ados-2modulo[2|3|4]', el[0])):
                 tkn_vec_rid = list(filter(lambda x: not (bool(re.search('tot|score|lang|algor',
                                                                         str(x)))),
@@ -135,18 +157,18 @@ def behr_level1(raw_behr):
                         pass
                 tkn_vec_rid.pop(0)
             elif bool(re.match('psi', el[0])):
-                tkn_vec_rid = el[1:4] + list(filter(lambda x: bool(re.search('raw', str(x)))
+                tkn_vec_rid = [el[1]] + list(filter(lambda x: bool(re.search('raw', str(x)))
                                                               and not (bool(re.search('raw_dr|raw_ts',
                                                                                       str(x)))),
                                                     el))
             elif bool(re.match('srs', el[0])):
-                tkn_vec_rid = el[1:4] + list(filter(lambda x: bool(re.search('raw', str(x)))
+                tkn_vec_rid = [el[1]] + list(filter(lambda x: bool(re.search('raw', str(x)))
                                                               and not (bool(re.search('raw_tot', str(x)))),
                                                     el))
             elif bool(re.match('griffiths', el[0])):
                 tkn_vec_rid = list(filter(lambda x: bool(re.search('q_', str(x))),
                                           el))
-                tkn_vec_rid = el[1:4] + list(map(lambda x: '::'.join(['gmds'] + x.split('::')[1::]),
+                tkn_vec_rid = [el[1]] + list(map(lambda x: '::'.join(['gmds'] + x.split('::')[1::]),
                                                  tkn_vec_rid))
             deep_behr.setdefault(pid, list()).append(tkn_vec_rid)
     return deep_behr
@@ -162,7 +184,7 @@ def behr_level2(raw_behr):
     Return
     ------
     dictionary
-        {keys=pid, values=list(filtered tokens wrt level)}
+        {keys=pid, values=[[Pinfo, filtered tokens wrt level]]}
     """
 
     os.makedirs(os.path.join(data_path, 'level-2'),
@@ -174,42 +196,42 @@ def behr_level2(raw_behr):
             if bool(re.match('wa|wi|wpp', el[0])):
                 tkn_vec_rid = list(filter(lambda x: bool(re.search('sumScaled_[PR|VC|V|P|WM|PS|PO|GL]',
                                                                    str(x))), el))
-                tkn_vec_rid = el[1:4] + list(map(lambda x: '::'.join(['wechsler', x.split('_')[1]]),
+                tkn_vec_rid = [el[1]] + list(map(lambda x: '::'.join(['wechsler', x.split('_')[1]]),
                                                  tkn_vec_rid))
             elif bool(re.match('leit', el[0])):
                 tkn_vec_rid = list(
                     filter(lambda x: bool(re.search('scaled', str(x))),
                            el))
-                tkn_vec_rid = el[1:4] + list(map(lambda x: '::'.join(['leiter'] + x.split('::')[1:]),
+                tkn_vec_rid = [el[1]] + list(map(lambda x: '::'.join(['leiter'] + x.split('::')[1:]),
                                                  tkn_vec_rid))
             elif bool(re.match('vinel', el[0])):
                 tkn_vec_rid = list(filter(lambda x: bool(re.search('sum_',
                                                                    str(x))), el))
-                tkn_vec_rid = el[1:4] + list(map(lambda x: '::'.join(['vineland'] + x.split('::')[1:]),
+                tkn_vec_rid = [el[1]] + list(map(lambda x: '::'.join(['vineland'] + x.split('::')[1:]),
                                                  tkn_vec_rid))
             elif bool(re.match('ados-2modulo[1|toddler]', el[0])):
                 tkn_vec_rid = list(filter(lambda x: bool(re.search('\.sa_tot|\.rrb_tot',
                                                                    str(x))), el))
-                tkn_vec_rid = el[1:4] + list(map(lambda x: '::'.join(['ados'] + x.split('.')[1:]),
+                tkn_vec_rid = [el[1]] + list(map(lambda x: '::'.join(['ados'] + x.split('.')[1:]),
                                                  tkn_vec_rid))
             elif bool(re.match('ados-2modulo[2|3]', el[0])):
                 tkn_vec_rid = list(filter(lambda x: bool(re.search('::rrb_tot|::sa_tot', str(x))),
                                           el))
-                tkn_vec_rid = el[1:4] + list(map(lambda x: '::'.join(['ados'] + x.split('::')[1:]),
+                tkn_vec_rid = [el[1]] + list(map(lambda x: '::'.join(['ados'] + x.split('::')[1:]),
                                                  tkn_vec_rid))
             elif bool(re.match('psi', el[0])):
-                tkn_vec_rid = el[0:3] + list(filter(lambda x: bool(re.search('raw', str(x)))
+                tkn_vec_rid = [el[1]] + list(filter(lambda x: bool(re.search('raw', str(x)))
                                                               and not (bool(re.search('raw_dr|raw_ts',
                                                                                       str(x)))),
                                                     el))
             elif bool(re.match('srs', el[0])):
-                tkn_vec_rid = el[1:4] + list(filter(lambda x: bool(re.search('raw', str(x)))
+                tkn_vec_rid = [el[1]] + list(filter(lambda x: bool(re.search('raw', str(x)))
                                                               and not (bool(re.search('raw_tot', str(x)))),
                                                     el))
             elif bool(re.match('griffiths', el[0])):
                 tkn_vec_rid = list(filter(lambda x: bool(re.search('q_', str(x))),
                                           el))
-                tkn_vec_rid = el[1:4] + list(map(lambda x: '::'.join(['gmds'] + x.split('::')[1:]),
+                tkn_vec_rid = [el[1]] + list(map(lambda x: '::'.join(['gmds'] + x.split('::')[1:]),
                                                  tkn_vec_rid))
             deep_behr.setdefault(pid, list()).append(tkn_vec_rid)
     return deep_behr
@@ -225,7 +247,7 @@ def behr_level3(raw_behr):
     Return
     ------
     dictionary
-        {keys=pid, values=list(filtered tokens wrt level)}
+        {keys=pid, values=[[Pinfo, filtered tokens wrt level]]}
     """
 
     os.makedirs(os.path.join(data_path, 'level-3'),
@@ -237,35 +259,35 @@ def behr_level3(raw_behr):
             if bool(re.match('wa|wi|wpp', el[0])):
                 tkn_vec_rid = list(filter(lambda x: bool(re.search('::FSIQ', str(x))),
                                           el))
-                tkn_vec_rid = el[1:4] + list(map(lambda x: '::'.join(['wechsler'] + x.split('::')[1:]),
+                tkn_vec_rid = [el[1]] + list(map(lambda x: '::'.join(['wechsler'] + x.split('::')[1:]),
                                                  tkn_vec_rid))
             elif bool(re.match('leit', el[0])):
                 tkn_vec_rid = list(filter(lambda x: bool(re.search('composite_fr|::BIQ', str(x))),
                                           el))
-                tkn_vec_rid = el[1:4] + list(map(lambda x: '::'.join(['leiter'] + x.split('::')[1:]),
+                tkn_vec_rid = [el[1]] + list(map(lambda x: '::'.join(['leiter'] + x.split('::')[1:]),
                                                  tkn_vec_rid))
             elif bool(re.match('vinel', el[0])):
                 tkn_vec_rid = list(filter(lambda x: bool(re.search('standard_ABC', str(x))),
                                           el))
-                tkn_vec_rid = el[1:4] + list(map(lambda x: '::'.join(['vineland'] + x.split('::')[1:]),
+                tkn_vec_rid = [el[1]] + list(map(lambda x: '::'.join(['vineland'] + x.split('::')[1:]),
                                                  tkn_vec_rid))
             elif bool(re.match('ados-2modulo[1|2|3|toddler]', el[0])):
                 tkn_vec_rid = list(filter(lambda x: bool(re.search('::sarrb_tot|comparison_score',
                                                                    str(x))),
                                           el))
-                tkn_vec_rid = el[1:4] + list(map(lambda x: '::'.join(['ados'] + x.split('::')[1:]),
+                tkn_vec_rid = [el[1]] + list(map(lambda x: '::'.join(['ados'] + x.split('::')[1:]),
                                                  tkn_vec_rid))
             elif bool(re.match('psi', el[0])):
-                tkn_vec_rid = el[1:4] + list(filter(lambda x: bool(re.search('::raw_ts', str(x)))
+                tkn_vec_rid = [el[1]] + list(filter(lambda x: bool(re.search('::raw_ts', str(x)))
                                                               and not (bool(re.search('raw_dr', str(x)))),
                                                     el))
             elif bool(re.match('srs', el[0])):
-                tkn_vec_rid = el[1:4] + list(filter(lambda x: bool(re.search('::raw_tot', str(x))),
+                tkn_vec_rid = [el[1]] + list(filter(lambda x: bool(re.search('::raw_tot', str(x))),
                                                     el))
             elif bool(re.match('griffiths', el[0])):
                 tkn_vec_rid = list(filter(lambda x: bool(re.search('GQ', str(x))),
                                           el))
-                tkn_vec_rid = el[1:4] + list(map(lambda x: '::'.join(['gmds'] + x.split('::')[1:]),
+                tkn_vec_rid = [el[1]] + list(map(lambda x: '::'.join(['gmds'] + x.split('::')[1:]),
                                                  tkn_vec_rid))
             deep_behr.setdefault(pid, list()).append(tkn_vec_rid)
     return deep_behr
@@ -281,7 +303,7 @@ def behr_level4(raw_behr):
     Return
     ------
     dictionary
-        {keys=pid, values=list(filtered tokens wrt level)}
+        {keys=pid, values=[[Pinfo, filtered tokens wrt level]]}
     """
 
     os.makedirs(os.path.join(data_path, 'level-4'),
@@ -293,39 +315,39 @@ def behr_level4(raw_behr):
             if bool(re.match('wa|wi|wpp', el[0])):
                 tkn_vec_rid = list(filter(lambda x: bool(re.search('::FSIQ', str(x))),
                                           el))
-                tkn_vec_rid = el[1:4] + list(map(lambda x: '::'.join(['wechsler'] + x.split('::')[1:]),
+                tkn_vec_rid = [el[1]] + list(map(lambda x: '::'.join(['wechsler'] + x.split('::')[1:]),
                                                  tkn_vec_rid))
             elif bool(re.match('leit', el[0])):
                 tkn_vec_rid = list(filter(lambda x: bool(re.search('composite_fr|::BIQ', str(x))),
                                           el))
-                tkn_vec_rid = el[1:4] + list(map(lambda x: '::'.join(['leiter'] + x.split('::')[1:]),
+                tkn_vec_rid = [el[1]] + list(map(lambda x: '::'.join(['leiter'] + x.split('::')[1:]),
                                                  tkn_vec_rid))
             elif bool(re.match('vinel', el[0])):
                 tkn_vec_rid = list(filter(lambda x: bool(re.search('standard_[MSD|DLSD|CD|SD|ABC]',
                                                                    str(x))), el))
-                tkn_vec_rid = el[1:4] + list(map(lambda x: '::'.join(['vineland'] + x.split('::')[1:]),
+                tkn_vec_rid = [el[1]] + list(map(lambda x: '::'.join(['vineland'] + x.split('::')[1:]),
                                                  tkn_vec_rid))
             elif bool(re.match('ados-2modulo[1|toddler]', el[0])):
                 tkn_vec_rid = list(filter(lambda x: bool(re.search('\.sa_tot|\.rrb_tot|comparison_score',
                                                                    str(x))), el))
-                tkn_vec_rid = el[1:4] + list(map(lambda x: _subadosstring_(x),
+                tkn_vec_rid = [el[1]] + list(map(lambda x: _subadosstring_(x),
                                                  tkn_vec_rid))
             elif bool(re.match('ados-2modulo[2|3]', el[0])):
                 tkn_vec_rid = list(filter(lambda x: bool(re.search('::rrb_tot|::sa_tot|comparison_score',
                                                                    str(x))), el))
-                tkn_vec_rid = el[1:4] + list(map(lambda x: '::'.join(['ados'] + x.split('::')[1:]),
+                tkn_vec_rid = [el[1]] + list(map(lambda x: '::'.join(['ados'] + x.split('::')[1:]),
                                                  tkn_vec_rid))
             elif bool(re.match('psi', el[0])):
-                tkn_vec_rid = el[1:4] + list(filter(lambda x: bool(re.search('::raw_ts', str(x)))
+                tkn_vec_rid = [el[1]] + list(filter(lambda x: bool(re.search('::raw_ts', str(x)))
                                                               and not (bool(re.search('raw_dr', str(x)))),
                                                     el))
             elif bool(re.match('srs', el[0])):
-                tkn_vec_rid = el[1:4] + list(filter(lambda x: bool(re.search('::raw_[tot|rirb]', str(x))),
+                tkn_vec_rid = [el[1]] + list(filter(lambda x: bool(re.search('::raw_[tot|rirb]', str(x))),
                                                     el))
             elif bool(re.match('griffiths', el[0])):
                 tkn_vec_rid = list(filter(lambda x: bool(re.search('q_|GQ',
                                                                    str(x))), el))
-                tkn_vec_rid = el[1:4] + list(map(lambda x: '::'.join(['gmds'] + x.split('::')[1:]),
+                tkn_vec_rid = [el[1]] + list(map(lambda x: '::'.join(['gmds'] + x.split('::')[1:]),
                                                  tkn_vec_rid))
             deep_behr.setdefault(pid, list()).append(tkn_vec_rid)
     return deep_behr
@@ -336,8 +358,7 @@ def create_vocabulary(deep_behr, level=None):
     Parameters
     ----------
     deep_behr (dictionary)
-        {keys=pid, values=list(info, tokens}
-    level (int)
+        {keys=pid, values=[[Pinfo, filtered tokens wrt level]]
         level for which to build vocabulary
 
     Return
@@ -354,7 +375,7 @@ def create_vocabulary(deep_behr, level=None):
     idx = 0
     for lab, seq in deep_behr.items():
         for vec in seq:
-            for v in vec[3::]:
+            for v in vec[1::]:
                 if v not in lab_to_idx:
                     lab_to_idx[v] = idx
                     idx_to_lab[idx] = v
@@ -374,7 +395,7 @@ def create_behr(deep_behr, lab_to_idx, level=None):
         Parameters
         ----------
         deep_behr (dictionary)
-            {keys=pid, values=list(info, tokens}
+            {keys=pid, values=[[Pinfo, filtered tokens wrt level]]}
         level (int)
             level for which to build behr
 
@@ -395,11 +416,52 @@ def create_behr(deep_behr, lab_to_idx, level=None):
         wr.writerow(['ID_SUBJ', 'DOA', 'TERM'])
         for pid, seq in deep_behr.items():
             for s in seq:
-                behr.setdefault(pid, list()).append((s[2], [lab_to_idx[s[idx]]
-                                                            for idx in range(3, len(s))]))
-                wr.writerow([pid, s[2]] + [lab_to_idx[s[idx]]
-                                           for idx in range(3, len(s))])
+                behr.setdefault(pid, list()).append((s[0].aoa, [lab_to_idx[s[idx]]
+                                                                for idx in range(1, len(s))]))
+                wr.writerow([pid, s[0].aoa] + [lab_to_idx[s[idx]]
+                                               for idx in range(1, len(s))])
     return behr
+
+
+def create_features_data(term_behr_level4):
+    """Create quantitative feature dataframe from level 4
+
+    Parameters
+    ----------
+    term_behr_level4 (dictionary)
+        dictionary as output from behr_level4
+
+    Return
+    ------
+    dataframe
+    """
+    # elevate SettingWithCopy warning to an exception
+    # pd.set_option('mode.chained_assignment', 'raise')
+
+    # vocabulary with feature names per time period
+    fn_list = _feature_names(term_behr_level4)
+
+    # initialize empty dataframe
+    feat_df = pd.DataFrame(index=term_behr_level4.keys(),
+                           columns=fn_list)
+    for pid, tm_list in term_behr_level4.items():
+        for terms in tm_list:
+            for tm in terms[1:]:
+                tm_words = tm.split('::')
+                feat = '::'.join([_aoa_to_tf(terms[0].aoa)] + tm_words[:-1])
+                feat_df.loc[pid, feat] = int(tm_words[-1])
+
+    # impute missing values with mean
+    feat_df.loc[:, :].fillna(feat_df.mean(), inplace=True)
+    # rescale data (normalize data, mean-imputed missing values end up padded with zero)
+    scaler = StandardScaler()
+    X = feat_df.values
+    X_scaled = scaler.fit_transform(X)
+    feat_scaled_df = pd.DataFrame(X_scaled,
+                                  index=term_behr_level4.keys(),
+                                  columns=fn_list)
+
+    return feat_df, feat_scaled_df
 
 
 """
@@ -448,3 +510,51 @@ def _subadosstring_(item):
     else:
         item = '::'.join(['ados'] + item.split('.')[1:])
     return item
+
+
+def _aoa_to_tf(aoa):
+    """returns the time period from the age of assessment
+
+    Parameters
+    ----------
+    aoa (float)
+        age of assessment
+
+    Return
+    ------
+    str
+        time period string (F1-F5)
+    """
+    if 0 < float(aoa) <= 2.5:
+        return 'F1'
+    elif 2.5 < float(aoa) <= 6.0:
+        return 'F2'
+    elif 6.0 < float(aoa) <= 13.0:
+        return 'F3'
+    elif 13.0 < float(aoa) < 17.0:
+        return 'F4'
+    else:
+        return 'F5'
+
+
+def _feature_names(term_behr):
+    """Return list of columns for the quantitative feature dataset
+
+    Parameters
+    ----------
+    term_behr (dictionary)
+        {pid: [[Pinfo, str of behavioral terms]]}
+
+    Return
+    ------
+    list of str
+    """
+    feat_list = []
+    for term_list in term_behr.values():
+        for tl in term_list:
+            feat_list.extend(list(map(lambda x:
+                                      '::'.join([_aoa_to_tf(tl[0].aoa)] +
+                                                x.split('::')[:-1]),
+                                      tl[1:])))
+    feat_list = list(set(feat_list))
+    return sorted(feat_list)
