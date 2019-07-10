@@ -433,7 +433,7 @@ def create_features_data(term_behr_level4):
 
     Return
     ------
-    dataframe
+    dataframes (features, scaled_features)
     """
     # elevate SettingWithCopy warning to an exception
     # pd.set_option('mode.chained_assignment', 'raise')
