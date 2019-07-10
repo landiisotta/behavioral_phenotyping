@@ -7,14 +7,29 @@ import numpy as np
 
 class Pembeddings():
     def __init__(self, behr, vocab):
-        """
-        Range of possible embeddings to perform on behavioral data
+        """ Range of possible embeddings to perform on behavioral data
         TFIDF, GLOVE
+
+        Parameters
+        ----------
+        behr
+            dictionary {pid: trm sequence}
+        vocab
+            dictionary, needed idx_to_mt
         """
         self.behr = behr
         self.vocab = vocab
 
     def tfidf(self):
+        """performs TFIDF
+
+        Return
+        ------
+        list
+            pids list
+        list
+            svd matrix
+        """
         # create document list
         doc_list = []
         for tupl_list in self.behr.values():
@@ -34,9 +49,15 @@ class Pembeddings():
         return pid_list, svd_mtx
 
     def glove_pemb(self):
-        """
-        Computes Glove embeddings from co-occurrence matrix
-        and returns patient embeddings
+        """Computes Glove embeddings from co-occurrence matrix
+            and returns patient embeddings
+
+        Return
+        ------
+        list
+            pids list
+        list
+            matrix of patient embeddings
         """
         # behrs wrt timeframes
         behr_tf = {}
@@ -70,17 +91,24 @@ class Pembeddings():
 
 
 def build_cooccur(vocab, corpus, window_size=10, min_count=None):
-    """
-    Build a word co-occurrence dictionary for the given corpus.
-    This function is a dictionary generator, where each element
-    is of the form
+    """Build a word co-occurrence dictionary for the given corpus.
+
+    Parameters
+    ----------
+    vocab
+        dictionary with the vocabulary of the form idx_to_mt
+    corpus
+        behr dictionary as returned by _build_corpus
+    window_size
+        int, size of the context window
+    min_count
+        int, if not `None`, cooccurrence pairs where either word
+        occurs in the corpus fewer than `min_count` times are ignored.
+    Return
+    ------
+    dictionary
         {i_main: {i_context: cooccurrence}}
-    where `i_main` is the ID of the main word in the cooccurrence and
-    `i_context` is the ID of the context word, and `cooccurrence` is the
-    `X_{ij}` cooccurrence value as described in Pennington et al.
-    (2014).
-    If `min_count` is not `None`, cooccurrence pairs where either word
-    occurs in the corpus fewer than `min_count` times are ignored.
+        see Pennington et al., (2014).
     """
 
     # Collect cooccurrences internally as a sparse matrix for passable
@@ -119,6 +147,16 @@ Private functions
 
 
 def _age_tf(age):
+    """ convert age to time slot string
+
+    Parameter
+    ---------
+    age
+        float
+    Return
+    ------
+    str
+    """
     if 0 < age <= 2.5:
         return 'F1'
     elif 2.5 < age <= 6.0:
@@ -131,8 +169,19 @@ def _age_tf(age):
         return 'F5'
 
 
-# random shuffle terms in time slots
+
 def _build_corpus(behr):
+    """random shuffle terms in time slots
+
+    Parameters
+    ----------
+    behr
+        dictionary {pid: trm sequence}
+    Return
+    ------
+    dictionary
+        {pid: trm list set and shuffles wrt to time slots F1-F5}
+    """
     corpus = {}
     for pid, tf_dict in behr.items():
         for tf in sorted(tf_dict.keys()):
