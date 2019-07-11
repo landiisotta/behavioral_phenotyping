@@ -39,7 +39,7 @@ class Visualization():
         TOOLTIPS = [('pid', '@pid'),
                     ('subc', '@subc'),
                     ('sex', '@sex'),
-                    ('bdate', '@date'),
+                    ('bdate', '@bdate'),
                     ('n_enc', '@n_enc')]
 
         plotTools = 'box_zoom, wheel_zoom, pan,  crosshair, reset, save'
