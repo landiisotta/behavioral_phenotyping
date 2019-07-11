@@ -13,13 +13,13 @@ python 3
 
 ## Pipeline TLDR
 
-Execute jupyter notebook
+Run jupyter notebook
 
 ```
 main.ipynb
 ```
 
-### Libraries
+### Modules
 
 Connect to the database and dump data
 
@@ -33,3 +33,24 @@ Return pandas dataframe with quantitative features (instrument scores) at level 
 ```
 features.py
 ```
+
+Perform TFIDF for patient embeddings 
+Glove embeddings on words and average them out for patient embeddings
+
+```
+pt_embedding.py
+```
+
+Run hierarchical clustering
+
+```
+clustering.py
+```
+
+Visualize results (scatterplot + dendrogram for subcluster visualization,
+heatmap for inspection of quantitative scores between subclusters)
+
+```
+visualization.py
+```
+
