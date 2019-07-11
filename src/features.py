@@ -53,6 +53,7 @@ def create_tokens(df_dict):
                                        df_dict[table_name].columns[idx - 1],
                                        str(row[idx])]) for idx in range(7, len(row))
                             if row[idx] != '']
+                raw_behr.setdefault(row[1], list()).append(subj_vec)
             elif bool(re.match('vin|srs', table_name)):
                 subj_vec = [table_name] + \
                            [Pinfo(row.sex, row.date_birth,
@@ -62,6 +63,7 @@ def create_tokens(df_dict):
                                        df_dict[table_name].columns[idx - 1],
                                        str(row[idx])]) for idx in range(7, len(row))
                             if row[idx] != '']
+                raw_behr.setdefault(row[1], list()).append(subj_vec)
             elif bool(re.match('psi', table_name)):
                 subj_vec = [table_name] + \
                            [Pinfo(row.sex, row.date_birth,
@@ -71,6 +73,7 @@ def create_tokens(df_dict):
                                        df_dict[table_name].columns[idx - 1],
                                        str(row[idx])]) for idx in range(7, len(row))
                             if row[idx] != '']
+                raw_behr.setdefault(row[1], list()).append(subj_vec)
             elif not (bool(re.match('emotional', table_name))):
                 subj_vec = [table_name] + \
                            [Pinfo(row.sex, row.date_birth,
@@ -79,7 +82,7 @@ def create_tokens(df_dict):
                                        df_dict[table_name].columns[idx - 1],
                                        str(row[idx])]) for idx in range(7, len(row))
                             if row[idx] != '']
-            raw_behr.setdefault(row[1], list()).append(subj_vec)
+                raw_behr.setdefault(row[1], list()).append(subj_vec)
     for string_vec in raw_behr.values():
         string_vec.sort(key=lambda x: x[1].aoa)
 

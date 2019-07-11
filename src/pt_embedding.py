@@ -74,9 +74,11 @@ class Pembeddings():
         coocc_dict = build_cooccur(self.vocab, corpus, window_size=20)
 
         model = glove.Glove(coocc_dict, alpha=0.75, x_max=100.0, d=ut.n_dim)
+        print("\nTraining Glove embeddings...")
         for epoch in range(ut.n_epoch):
             err = model.train(batch_size=ut.batch_size)
-            print("epoch %d, error %.3f" % (epoch, err), flush=True)
+            if epoch % 10 == 0:
+                print("epoch %d, error %.3f" % (epoch, err), flush=True)
 
         Wemb = model.W + model.ContextW  # as suggested in Pennington et al.
         p_emb = []

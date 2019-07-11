@@ -162,6 +162,7 @@ def demographics(subjects, encounters):
     plt.tick_params(axis='x', rotation=90)
     plt.tick_params(axis='y', labelsize=30)
     plt.savefig(os.path.join(ut.DATA_FOLDER_PATH, data_dir, 'n-encounter.png'))
+    plt.close()
 
     list_n_ass = [len(encounters[pat].list_ass()) for pat in encounters]
     print("Average number of assessments: {0:.3f}".format(np.mean(list_n_ass)))
@@ -171,9 +172,9 @@ def demographics(subjects, encounters):
 
     list_n_enc = [encounters[pat].n_enc for pat in encounters]
     print("Average number of encounters: {0:.3f}".format(np.mean(list_n_enc)))
-    print("Median number of assessments: {0}".format(np.median(list_n_enc)))
-    print("Maximum number of assessments: {0}".format(max(list_n_enc)))
-    print("Minimum number of assessments: {0}\n".format(min(list_n_enc)))
+    print("Median number of encounters: {0}".format(np.median(list_n_enc)))
+    print("Maximum number of encounters: {0}".format(max(list_n_enc)))
+    print("Minimum number of encounters: {0}\n".format(min(list_n_enc)))
 
     print("Instrument list:")
     for name in set_ins:
