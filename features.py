@@ -173,6 +173,7 @@ def behr_level1(raw_behr):
                                           el))
                 tkn_vec_rid = [el[1]] + list(map(lambda x: '::'.join(['gmds'] + x.split('::')[1::]),
                                                  tkn_vec_rid))
+
             deep_behr.setdefault(pid, list()).append(tkn_vec_rid)
     return deep_behr
 

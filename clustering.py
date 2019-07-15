@@ -1,10 +1,10 @@
 import numpy as np
 from sklearn.cluster import AgglomerativeClustering
 from sklearn.metrics import silhouette_score
-import pandas as pd
 
 
-class HclustEmbeddings():
+class HclustEmbeddings:
+
     def __init__(self, min_cl, max_cl, linkage, affinity):
         self.min_cl = min_cl
         self.max_cl = max_cl
@@ -71,7 +71,8 @@ class HclustEmbeddings():
         return {pid: cl for pid, cl in zip(pid_list, lab_cl)}
 
 
-class HclustFeatures():
+class HclustFeatures:
+
     def __init__(self, min_cl, max_cl, linkage, affinity):
         self.min_cl = min_cl
         self.max_cl = max_cl
