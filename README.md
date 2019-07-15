@@ -10,10 +10,23 @@ with neurodevelopmenta conditions.
 Application to data of individuals with Autism Spectrum Condition (ASC)
 from the laboratory of Observation, Diagnosis and Education (ODFLab).
 
-## Requirements
+### Technical Requirements
 
 ```
-python 3
+Python 3.6+
+Numpy ...
+Pandas ...
+Scikit-Learn ...
+....
+
+R 3... ?? (Keep R)
+```
+
+The full list of Python Packages is available in the `requrirements.txt` file. It is possible
+to install all the dependency by:
+
+```bash
+$ pip install -r requirements.txt 
 ```
 
 ## Behavioural Phenotyping Stratification Pipeline (tldr;)
