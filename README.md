@@ -1,56 +1,60 @@
 # Behavioral phenotyping project
+
 Behavioral data embeddings for the stratification of individuals
-with neurodevelopmenta conditions. 
+with neurodevelopmenta conditions.
+
+### Abstract
+
+> Paper abstract here 
 
 Application to data of individuals with Autism Spectrum Condition (ASC)
 from the laboratory of Observation, Diagnosis and Education (ODFLab).
 
-## Requirements
+### Technical Requirements
 
 ```
-python 3
+Python 3.6+
+Numpy ...
+Pandas ...
+Scikit-Learn ...
+UMAP ...
+Glove ...
+....
+
+R 3... ?? (Keep R)
 ```
 
-## Pipeline TLDR
+The full list of Python Packages is available in the `requrirements.txt` file. It is possible
+to install all the dependency by:
 
-Run jupyter notebook
-
-```
-main.ipynb
-```
-
-### Modules
-
-Connect to the database and dump data
-
-```
-dataset.py
+```bash
+$ pip install -r requirements.txt 
 ```
 
-Return vocabulary and dictionary of behavioral ehars for each of the 4 possible depth level. 
-Return pandas dataframe with quantitative features (instrument scores) at level 4.
+## Behavioural Phenotyping Stratification Pipeline (tldr;)
+
+A complete example of the _Behavioural Phenotyping Stratification_ is available 
+as Jupyter notebook:
 
 ```
-features.py
+jupyter notebook phenotyping_stratification_pipeline.ipynb
 ```
 
-Perform TFIDF for patient embeddings 
-Glove embeddings on words and average them out for patient embeddings
+### Documentation (at a glance)
 
-```
-pt_embedding.py
-```
+The code is structured into multiple modules (`.py` files), including algorithms and methods 
+for the multiple steps of the pipeline:
 
-Run hierarchical clustering
+* `dataset.py`: Connect to the database and dump data
+* `features.py`: Return vocabulary and dictionary of behavioral *ehars* for each of the 4 possible depth level.
+* `pt_embedding.py`: Perform TFIDF for patient embeddings; Glove embeddings on words and average them out for patient embeddings
+* `clustering.py`: Perform Hierachical Clustering on XXX data (embeddings?)
+* `visualization.py`: Visualize results (e.g. _scatterplot & dendrogram_ for sub-cluster visualization; 
+heatmap for inspection of quantitative scores between sub-clusters.
 
-```
-clustering.py
-```
 
-Visualize results (scatterplot + dendrogram for subcluster visualization,
-heatmap for inspection of quantitative scores between subclusters)
+#### TODO: Paper, Poster, Conference Reference HERE
 
-```
-visualization.py
-```
+#### TODO: Credits and Acknowledgements HERE
+
 

@@ -10,7 +10,8 @@ from sklearn.preprocessing import StandardScaler
 from math import pi
 
 
-class Visualization():
+class Visualization:
+    
     def __init__(self, subject_info, col_dict, c_out):
         self.subject_info = subject_info
         self.col_dict = col_dict
