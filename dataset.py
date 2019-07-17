@@ -1,239 +1,210 @@
-from sqlalchemy import create_engine, MetaData, select
+from sqlalchemy import create_engine, MetaData
 import datetime
-from datetime import date, datetime
-from decimal import *
+from datetime import datetime
 import csv
 import os
-import numpy as np
-import matplotlib.pyplot as plt
 import utils as ut
 import pandas as pd
-import pickle
+import logging
+from dataclasses import dataclass
+from basic_statistics import DataStatistics
 
-# create new directory or point to an existing one
+
+# Dataclasses to store patient demographics,
+# and patient info on encounters.
+@dataclass
+class Pinfo:
+    sex: str
+    dob: str
+    n_enc: int = 0
+
+
+@dataclass
+class Penc:
+    dob: str
+    doa_instrument: list()
+
+    def count_enc(self):
+        yr_enc = list(map(lambda x: x[0].split('/')[2],
+                          self.doa_instrument))
+        return len(set(yr_enc))
+
+
+# Configure the logging, logging to file.
+logging.basicConfig(level=logging.INFO,
+                    filename='/logs/dataset.log',
+                    filemode='w')
+
+# Create new directory or point to an existing one to store data.
 data_dir = 'odf-data'
 data_path = os.path.join(ut.DATA_FOLDER_PATH, data_dir)
 os.makedirs(data_path, exist_ok=True)
-print("Created directory /odf-data: {0}\n".format(datetime.now().strftime('%Y-%m-%d-%H-%M-%S')))
+runtime_date = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+logging.info(f'{runtime_date} created ../data/odf-data folder for returned objects')
 
 
-# define Patient class with demographic info
-class Patient:
-    def __init__(self,
-                 pid: str,
-                 bdate: datetime,
-                 sex: str):
-        self.pid = pid
-        self.bdate = bdate
-        self.sex = sex
-
-
-class Pencounters(Patient):
-    def __init__(self, pid, bdate, sex,
-                 instr_and_ass: list()):
-        self._instr_and_ass = instr_and_ass
-        super().__init__(pid, bdate, sex)
-
-    def add_encounter(self, inst, ass_date):
-        self._instr_and_ass.append((inst, ass_date))
-        self._instr_and_ass.sort(key=lambda x: x[1])
-
-    @property
-    def n_enc(self):
-        # one encounter corresponds to an assessment year
-        ass_yr = [el[1].split('/')[2] for el in self._instr_and_ass]
-        return len(set(ass_yr))
-
-    def list_ass(self):
-        return self._instr_and_ass
-
-
-def access_db(dump_tables=False):
-    """ Access the database, saves (the tables and) the subject demographics
-    Parameters
-    ----------
-    dump_tables (boolean)
-        if True dumps database tables to data_dir
+def access_db():
+    """ Access the database and dump tables.
 
     Returns
     -------
-    list
-        list of Patient class objects
-    dictionary
-        {key=patient_id, value=Pencounters class object}
+
     dictionary
         {key=table_name, value=pandas dataframe}
     """
     # connect to the database
     engine = create_engine(ut.SQLALCHEMY_CONN_STRING)
     conn = engine.connect()
+    logging.info('Connection to DB established')
     # inspect the tables in the database
-    # inspector = inspect(engine) if we want to inspect the tables (inspector.get_table_names())
     metadata = MetaData(engine, reflect=True)
 
-    # create patient list
-    subject_list = []
-    # create encounter list
-    encounter_dict = {}
-    # create dictionary of tables
-    df_dict = {}
-
-    adult_data_table = metadata.tables['ados-2modulo4']
-    q = select([adult_data_table.c.id_subj])
-    adult_ids = conn.execute(q)
-    adult_subj = list(set([str(aid[0])
-                           for aid in adult_ids.fetchall()]))
-
+    logging.info('Dumping all tables')
+    df_tables = {}
     for table_name in metadata.tables:
-        data_table = metadata.tables[table_name]
-        q = select([data_table.c.id_subj,
-                    data_table.c.date_birth,
-                    data_table.c.date_ass,
-                    data_table.c.sex])
-        patients = conn.execute(q)
-        for patient_dem in patients:
-            pid, bdate, assdate, sex = patient_dem
-            if not (type(bdate) == str):
-                bdate = bdate.strftime('%d/%m/%Y')
-            if not (type(assdate) == str):
-                assdate = assdate.strftime('%d/%m/%Y')
-            if pid not in encounter_dict and pid not in adult_subj:
-                encounter_dict[pid] = Pencounters(pid, bdate, sex,
-                                                  [(table_name, assdate)])
-                subject_list.append(Patient(pid, bdate, sex))
-            elif pid not in adult_subj:
-                encounter_dict[pid].add_encounter(table_name, assdate)
-        # create dataframes from tables and save them to csv
-        q_dump = select([c for c in data_table.c])
-        dump = conn.execute(q_dump)
-        data_ls = list(map(lambda x: convert_type(x),
-                           row[2::]) for row in dump if row[2] not in adult_subj)
-        df_dict[table_name] = pd.DataFrame(data_ls,
-                                           columns=dump.keys()[2::])
-        if dump_tables:
-            with open(os.path.join(ut.DATA_FOLDER_PATH,
-                                   data_dir,
-                                   'cohort-tables.pkl'), 'wb') as f:
-                pickle.dump(df_dict, f, pickle.HIGHEST_PROTOCOL)
-        # Save demographics: (all tables, demographics + instruments)
-        with open(os.path.join(ut.DATA_FOLDER_PATH, data_dir,
-                               'person-instrument.csv'), 'w') as f:
-            wr = csv.writer(f, delimiter=',', quoting=csv.QUOTE_MINIMAL)
-            wr.writerow(['ID_SUBJ', 'DOB', 'SEX', 'N_ENC', 'INSTRUMENT', 'DOA'])
-            for pid, dem in encounter_dict.items():
-                for tup in dem.list_ass():
-                    wr.writerow([pid, dem.bdate, dem.sex,
-                                 dem.n_enc] + list(tup))
-    return subject_list, encounter_dict, df_dict
+        df_tables[table_name] = pd.read_sql_table(table_name,
+                                                  con=conn,
+                                                  index_col='id').drop('form_info',
+                                                                       axis=1)
+    return df_tables
 
 
-def demographics(subjects, encounters):
-    """Demographic statistics and histogram of the n_encounter distribution
+def data_wrangling(tables_dict):
+    """ Drop excluded subjects and tables
 
     Parameters
     ----------
-    subjects (list):
-        list of Patient class objects
-    encounters (dictionary):
-        {key=patient_id, value=Pencounters() class object}
+    tables_dict: dictionary
+        dictionary with dumped tables from DB
+
+    Returns
+    -------
+    dictionary
+        reduced dictionary without excluded tables and subjects (rows)
     """
-    # Compute statistics
-    period_span = []
-    set_ins = set()
-    for pid in encounters:
-        period_span.extend([el[1] for el in encounters[pid].list_ass()])
-        set_ins.update([el[0] for el in encounters[pid].list_ass()])
+    adult_subj = tables_dict['ados-2modulo4'].id_subj.unique()
+    logging.info(f'Dropped {len(adult_subj)} subjects')
 
-    # correct wrong dates
-    today = datetime.today()
-    for idx, el in enumerate(period_span):
-        if el.split('/')[2] == 2019 and el.month >= today.month:
-            period_span[idx] = datetime(el.split('/')[2],
-                                        el.split('/')[0],
-                                        el.split('/')[1]).date()
+    # names of the tables to drop from the dictionary
+    tb_drop = ['ados-2modulo4',
+               'emotionalavailabilityscales']
 
-    print("Period span: %s -- %s\n" % (min(period_span), max(period_span)))
-    print("N of subjects: {0}\n".format(len(set(subjects))))
+    tb_dict_rid = {}
+    for tb_name, df in tables_dict.items():
+        if tb_name not in tb_drop:
+            row_drop = ~(df['id_subj'].isin(adult_subj))
+            tb_dict_rid[tb_name] = df.loc[row_drop]
 
-    # plot histogram with number of encounters
-    plt.figure(figsize=(40, 20))
-    plt.bar(list(encounters.keys()),
-            [el.n_enc for el in encounters.values()])
-    plt.tick_params(axis='x', rotation=90)
-    plt.tick_params(axis='y', labelsize=30)
-    plt.savefig(os.path.join(ut.DATA_FOLDER_PATH, data_dir, 'n-encounter.png'))
-    plt.close()
+    return tb_dict_rid
 
-    list_n_ass = [len(encounters[pat].list_ass()) for pat in encounters]
-    print("Average number of assessments: {0:.3f}".format(np.mean(list_n_ass)))
-    print("Median number of assessments: {0}".format(np.median(list_n_ass)))
-    print("Maximum number of assessments: {0}".format(max(list_n_ass)))
-    print("Minimum number of assessments: {0}\n".format(min(list_n_ass)))
 
-    list_n_enc = [encounters[pat].n_enc for pat in encounters]
-    print("Average number of encounters: {0:.3f}".format(np.mean(list_n_enc)))
-    print("Median number of encounters: {0}".format(np.median(list_n_enc)))
-    print("Maximum number of encounters: {0}".format(max(list_n_enc)))
-    print("Minimum number of encounters: {0}\n".format(min(list_n_enc)))
+def cohort_info(tables_dict):
+    """Store instances of Pinfo and Penc  classes in dictionaries
 
-    print("Instrument list:")
-    for name in set_ins:
-        print("{0}".format(name))
-    print('N of selected instruments: {0}'.format(len(set_ins)))
-    print('\n')
+    Parameters
+    ----------
+    tables_dict: dictionary
+        dictionary with data tables
 
-    age_ls = [age(pat.bdate) for pat in subjects]
-    sex_ls = [pat.sex for pat in subjects]
-    print("Mean age of the subjects: {0} -- Standard deviation: {1}".format(np.mean(age_ls),
-                                                                            np.std(age_ls)))
-    print("N Female: {0} -- N Male: {1}\n".format(
-        sex_ls.count("Femmina"),
-        sex_ls.count("Maschio")))
+    Returns
+    -------
+    dictionary
+        {keys=pid, values=Pinfo instances}
+    dictionary
+        {keys=pid, values=Penc instances}
+    """
+    demog_dict = {}
+    enc_dict = {}
+    for tn, df in tables_dict.items():
+        for _, row in df.iterrows():
+            ass_date = _correct_datetime(row.date_ass)
+            birth_date = _correct_datetime(row.date_birth)
+            if row.id_subj in enc_dict:
+                enc_dict[row.id_subj].doa_instrument.append((ass_date, tn))
+            else:
+                enc_dict[row.id_subj] = Penc(dob=birth_date,
+                                             doa_instrument=[(ass_date,
+                                                              tn)])
+                demog_dict.setdefault[row.id_subj] = Pinfo(sex=row.sex,
+                                                           dob=birth_date)
+    for pid in demog_dict:
+        demog_dict[pid].n_enc = enc_dict[pid].count_enc()
+    # dump info to csv files
+    _dump_info(demog_dict, enc_dict)
+    # save log with statistics
+    DataStatistics.compute(data_dir)
+    return demog_dict, enc_dict
 
 
 """
-Functions
+Private functions
 """
 
 
-def age(birthDate):
+def _age(dob, doa):
     """
     Parameters
     ----------
-    birthDate (datetime)
+    dob: pandas Timestamp
+    doa: pandas Timestamp
 
     Return
     ------
     float
-        age from birth date
+        age of assessment
     """
     days_in_year = 365.2425
-    bDate = datetime.strptime(birthDate, '%d/%m/%Y').date()
-    currentAge = (date.today() - bDate).days / days_in_year
-    return currentAge
+    aoa = (dob - doa).days / days_in_year
+    return aoa
 
 
-def convert_type(el):
+def _correct_datetime(date_ts):
     """
     Parameters
     ----------
-    el
-        element of a vector
+    date_ts: pandas Timestamp
 
-    Return
-    ------
-    if type(el) is datetime
-        str
-    if type(el) is decimal
-        int
-    else
-        return el
+    Returns
+    -------
+    str
+        strftime %d/%m/%Y
     """
-    if type(el) is datetime:
-        return el.strftime('%d/%m/%Y')
-    elif type(el) is Decimal:
-        return int(el)
-    elif el is None:
-        return ''
+    # correct wrong dates
+    today = datetime.today()
+    if date_ts.year == today.year and date_ts.month >= today.month:
+        corrected_date = pd.Timestamp(year=date_ts.year,
+                                      month=date_ts.day,
+                                      day=date_ts.month)
     else:
-        return el
+        corrected_date = date_ts
+
+    return corrected_date.strftime("%d/%m/%Y")
+
+
+def _dump_info(demog_info, enc_info):
+    """Save csv file with demographic and encounter info
+
+    Parameters
+    ----------
+    demog_info: dictionary
+        {keys=pid, values=Pinfo instances}
+    enc_info: dictionary
+        {keys=pid, values=Penc instances}
+    """
+    logging.info("Saving csv files on subject info and subject encounters")
+    with open(os.path.join(ut.DATA_FOLDER_PATH, data_dir,
+                           'person-encounters.csv'), 'w') as f:
+        wr = csv.writer(f, delimiter=',', quoting=csv.QUOTE_MINIMAL)
+        wr.writerow(['ID_SUBJ', 'DOB', 'DOA', 'AOA', 'INSTRUMENT'])
+        for pid, penc in enc_info.items():
+            for tup in penc.doa_instrument:
+                wr.writerow([pid, penc.dob, tup[0],
+                             _age(penc.dob, tup[0]),
+                             tup[1]])
+    with open(os.path.join(ut.DATA_FOLDER_PATH, data_dir,
+                           'person-demographics.csv'), 'w') as f:
+        wr = csv.writer(f, delimiter=',', quoting=csv.QUOTE_MINIMAL)
+        wr.writerow(['ID_SUBJ', 'SEX', 'DOB', 'N_ENC'])
+        for pid, pinfo in demog_info.items():
+            wr.writerow([pid, pinfo.sex, pinfo.dob,
+                         pinfo.n_enc])
