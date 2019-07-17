@@ -1,13 +1,13 @@
 # Behavioral phenotyping project
 
 Behavioral data embeddings for the stratification of individuals
-with neurodevelopmenta conditions.
+with neurodevelopmental conditions.
 
 ### Abstract
 
 > Paper abstract here 
 
-Application to data of individuals with Autism Spectrum Condition (ASC)
+Application to data from individuals with Autism Spectrum Condition (ASC)
 from the laboratory of Observation, Diagnosis and Education (ODFLab).
 
 ### Technical Requirements
@@ -46,11 +46,12 @@ The code is structured into multiple modules (`.py` files), including algorithms
 for the multiple steps of the pipeline:
 
 * `dataset.py`: Connect to the database and dump data
-* `features.py`: Return vocabulary and dictionary of behavioral *ehars* for each of the 4 possible depth level.
+* `features.py`: Return vocabulary and dictionary of behavioral *ehrs* for each of the 4 possible depth level. Returns 
+dataset with quantitative scores for level 4 features
 * `pt_embedding.py`: Perform TFIDF for patient embeddings; Glove embeddings on words and average them out for patient embeddings
-* `clustering.py`: Perform Hierachical Clustering on XXX data (embeddings?)
+* `clustering.py`: Perform Hierachical Clustering on XXX data (embeddings, quantitative 4th level features)
 * `visualization.py`: Visualize results (e.g. _scatterplot & dendrogram_ for sub-cluster visualization; 
-heatmap for inspection of quantitative scores between sub-clusters.
+heatmap for inspection of quantitative scores between sub-clusters
 
 
 #### TODO: Paper, Poster, Conference Reference HERE

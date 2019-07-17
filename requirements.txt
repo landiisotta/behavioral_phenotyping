@@ -1,0 +1,10 @@
+sqlalchemy
+pandas
+numpy
+scikit-learn
+scipy
+glove
+jupyter
+matplotlib
+bokeh
+umap-learn

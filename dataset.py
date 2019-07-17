@@ -53,7 +53,7 @@ def access_db(dump_tables=False):
     Parameters
     ----------
     dump_tables (boolean)
-        if True dumps database tables to folder
+        if True dumps database tables to data_dir
 
     Returns
     -------
