@@ -9,3 +9,7 @@ matplotlib
 bokeh
 umap-learn
 dataclasses
+google-api-python-client
+gsheets
+oauth2client
+httplib2

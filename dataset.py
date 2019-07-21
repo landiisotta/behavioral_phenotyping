@@ -21,6 +21,7 @@ class Pinfo:
 
 @dataclass
 class Penc:
+    sex: str
     dob: str
     doa_instrument: list()
 
@@ -122,11 +123,12 @@ def cohort_info(tables_dict):
             if row.id_subj in enc_dict:
                 enc_dict[row.id_subj].doa_instrument.append((ass_date, tn))
             else:
-                enc_dict[row.id_subj] = Penc(dob=birth_date,
+                enc_dict[row.id_subj] = Penc(sex=row.sex,
+                                             dob=birth_date,
                                              doa_instrument=[(ass_date,
                                                               tn)])
-                demog_dict.setdefault[row.id_subj] = Pinfo(sex=row.sex,
-                                                           dob=birth_date)
+                demog_dict[row.id_subj] = Pinfo(sex=row.sex,
+                                                dob=birth_date)
     for pid in demog_dict:
         demog_dict[pid].n_enc = enc_dict[pid].count_enc()
     # dump info to csv files
@@ -137,11 +139,11 @@ def cohort_info(tables_dict):
 
 
 """
-Private functions
+Functions
 """
 
 
-def _age(dob, doa):
+def age_ass(dob, doa):
     """
     Parameters
     ----------
@@ -195,16 +197,18 @@ def _dump_info(demog_info, enc_info):
     with open(os.path.join(ut.DATA_FOLDER_PATH, data_dir,
                            'person-encounters.csv'), 'w') as f:
         wr = csv.writer(f, delimiter=',', quoting=csv.QUOTE_MINIMAL)
-        wr.writerow(['ID_SUBJ', 'DOB', 'DOA', 'AOA', 'INSTRUMENT'])
-        for pid, penc in enc_info.items():
-            for tup in penc.doa_instrument:
-                wr.writerow([pid, penc.dob, tup[0],
-                             _age(penc.dob, tup[0]),
+        wr.writerow(['ID_SUBJ', 'SEX', 'DOB', 'DOA', 'AOA', 'INSTRUMENT'])
+        for pid in sorted(enc_info.keys()):
+            for tup in enc_info[pid].doa_instrument.sort(key=lambda x: (x[1], x[0])):
+                wr.writerow([pid, enc_info[pid].sex,
+                             enc_info[pid].dob, tup[0],
+                             age_ass(enc_info[pid].dob, tup[0]),
                              tup[1]])
     with open(os.path.join(ut.DATA_FOLDER_PATH, data_dir,
                            'person-demographics.csv'), 'w') as f:
         wr = csv.writer(f, delimiter=',', quoting=csv.QUOTE_MINIMAL)
         wr.writerow(['ID_SUBJ', 'SEX', 'DOB', 'N_ENC'])
-        for pid, pinfo in demog_info.items():
-            wr.writerow([pid, pinfo.sex, pinfo.dob,
-                         pinfo.n_enc])
+        for pid in sorted(demog_info.keys()):
+            wr.writerow([pid, demog_info[pid].sex,
+                         demog_info[pid].dob,
+                         demog_info[pid].n_enc])
