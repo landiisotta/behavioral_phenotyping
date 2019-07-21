@@ -41,7 +41,7 @@ class DataStatistics:
                                        'person-encounters.csv'),
                           sep=',',
                           header=0)
-        dem['age'] = list(map(lambda x: _age(x), dem.dob.tolist()))
+        dem['age'] = list(map(lambda x: self.__age(x), dem.dob.tolist()))
 
         logging.info('N of subjects: %d', len(dem.id_subj.unique()))
         logging.info('%s', pd.crosstab(dem.sex, columns='count'))
@@ -75,25 +75,22 @@ class DataStatistics:
                                  'n-encounter.png'))
         plt.close()
 
+    @staticmethod
+    def __age(dob):
+        """
+        Parameters
+        ----------
+        dob: str
+            date of birth in format %d/%m/%Y
 
-"""
-Private functions
-"""
+        Return
+        ------
+        float
+            age from birth date
+        """
+        days_in_year = 365.2425
+        dt_dob = datetime.strptime(dob, '%d/%m/%Y')
+        current_age = (datetime.today() - dt_dob).days / days_in_year
+        return current_age
 
 
-def _age(dob):
-    """
-    Parameters
-    ----------
-    dob: str
-        date of birth in format %d/%m/%Y
-
-    Return
-    ------
-    float
-        age from birth date
-    """
-    days_in_year = 365.2425
-    dt_dob = datetime.strptime(dob, '%d/%m/%Y')
-    current_age = (datetime.today() - dt_dob).days / days_in_year
-    return current_age
