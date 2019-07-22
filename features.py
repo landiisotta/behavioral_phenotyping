@@ -4,6 +4,7 @@ import re
 import pandas as pd
 from dataset import Penc, age_ass
 from datamap import connect_api
+from sklearn.preprocessing import StandardScaler
 import logging
 
 # Configure the logging, logging to file.
@@ -86,6 +87,7 @@ class DataFeatures:
         dataframe
             Table with instrument scores at level 4 (at different times F1-F5)
             per subject.
+        dataframe Scaled feature set with mean imputed missing values.
         """
         if self.level != 4:
             logging.error("create_level_features() is only available for level 4.")
@@ -114,7 +116,13 @@ class DataFeatures:
                     feat_df.loc[p_id, ['::'.join(tkn[:-1])]] = int(tkn[-1])
             feat_df.to_csv('./data/level-4/feature_data.csv')  # dump dataframe
 
-        return feat_df
+            scaler = StandardScaler()
+            feat_df_scaled = feat_df.fillna(feat_df.mean(), inplace=False)
+            feat_df_scaled = pd.DataFrame(scaler.fit_transform(feat_df_scaled),
+                                          columns=feat_df.columns,
+                                          index=feat_df.index)
+
+        return feat_df, feat_df_scaled
 
     def __save_vocab_behr(self, behr, bt_to_idx):
         """Saves behavioral EHRs and vocabulary of terms at the level specified

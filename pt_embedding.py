@@ -80,13 +80,13 @@ class Pembeddings:
             if epoch % 10 == 0:
                 print("epoch %d, error %.3f" % (epoch, err), flush=True)
 
-        Wemb = model.W + model.ContextW  # as suggested in Pennington et al.
+        wemb = model.W + model.ContextW  # as suggested in Pennington et al.
         p_emb = []
         pid_list = []
         for pid, term in corpus.items():
             if len(term) != 0:
                 pid_list.append(pid)
-                p_emb.append(np.mean([Wemb[int(t)].tolist() for t in term],
+                p_emb.append(np.mean([wemb[int(t)].tolist() for t in term],
                                      axis=0).tolist())
 
         return pid_list, p_emb

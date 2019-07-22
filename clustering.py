@@ -4,6 +4,7 @@ from sklearn.metrics import silhouette_score
 
 
 class HclustEmbeddings:
+    """ Performs hierarchical clustering on patient embeddings"""
 
     def __init__(self, min_cl, max_cl, linkage, affinity):
         self.min_cl = min_cl
@@ -17,11 +18,19 @@ class HclustEmbeddings:
                        subsampl):
         """Iterate clustering of subsets anf find best number of clusters
 
-        :param mtx: list (tfidf, glove)
-        :param pid_list: list
-        :param n_iter: num
-        :param subsampl: float
-        :return: num
+        Parameters
+        ----------
+        mtx: list
+            List of embeddings as returned by pt_embedding module
+        n_iter: int
+            number of iteration to select the best number of clusters
+        subsampl: float
+            Fraction of data to consider for clustering
+
+        Returns
+        -------
+        int
+            Best number of clusters
         """
         n_cl_selected = []
         for it in range(n_iter):
@@ -49,18 +58,29 @@ class HclustEmbeddings:
         print("\nBest N cluster:{0}".format(best_n_clu))
         return best_n_clu
 
-    def fit(self, mtx, pid_list, best_n_clu):
-        """fit HC on patient embeddings
+    @staticmethod
+    def fit(mtx, pid_list, n_clu):
+        """ Perform HC on patient embeddings
 
-        :param mtx: list (tfidf, glove)
-        :param pid_list: list
-        :param best_n_clu: int
-        :return: dictionary {pid: cl}
+        Parameters
+        ----------
+        mtx: list
+            Embeddings list
+        pid_list: list
+            List of subjects id ordered as in mtx
+        n_clu: int
+            Number of clusters
+
+        Returns
+        -------
+        dictionary
+            Dictionary with cluster label per subject id
+            {pid: cl}
         """
-        hclu = AgglomerativeClustering(n_clusters=best_n_clu)
+        hclu = AgglomerativeClustering(n_clusters=n_clu)
         lab_cl = hclu.fit_predict(mtx)
         silh = silhouette_score(mtx, lab_cl)
-        print('(*) Number of clusters %d -- Silhouette score %.2f' % (best_n_clu, silh))
+        print('(*) Number of clusters %d -- Silhouette score %.2f' % (n_clu, silh))
 
         num_count = np.unique(lab_cl, return_counts=True)[1]
         for idx, nc in enumerate(num_count):
@@ -72,6 +92,7 @@ class HclustEmbeddings:
 
 
 class HclustFeatures:
+    """ Performs Hierarchical clustering on feature data"""
 
     def __init__(self, min_cl, max_cl, linkage, affinity):
         self.min_cl = min_cl
@@ -83,19 +104,29 @@ class HclustFeatures:
                        df_scaled,
                        n_iter,
                        subsampl):
-        """Iterate clustering of subsets anf find best number of clusters
+        """ Find the best number of clusters iterating over subset of data
 
-        :param df_scaled: dataframe with pid as index
-        :param pid_list: list
-        :param n_iter: num
-        :param subsampl: float
-        :return: num
+        Parameters
+        ----------
+        df_scaled: dataframe
+            Scaled feature data with patient ids as index
+        n_iter: int
+            Number of iterations to perform
+        subsampl: float
+            Fraction of data to consider in the subset
+            at each iteration
+
+        Returns
+        -------
+        int
+            best number of clusters
         """
         n_cl_selected = []
         for it in range(n_iter):
             idx = np.random.randint(0, len(df_scaled), int(len(df_scaled) * subsampl))
             sub_df = df_scaled.iloc[[i for i in idx], :]
             best_silh = 0
+            best_n_clu = 2
             for n_clu in range(self.min_cl, self.max_cl):
                 hclu = AgglomerativeClustering(n_clusters=n_clu)
                 lab_cl = hclu.fit_predict(sub_df)
@@ -103,7 +134,8 @@ class HclustFeatures:
                 if tmp_silh > best_silh:
                     best_silh = tmp_silh
                     best_n_clu = n_clu
-            print("(*) Iter {0} -- N clusters {1}".format(it, best_n_clu))
+            print("(*) Iter {0} -- N clusters {1}".format(it,
+                                                          best_n_clu))
             n_cl_selected.append(best_n_clu)
         unique, counts = np.unique(n_cl_selected, return_counts=True)
         print("Counts of N clusters:")
@@ -114,17 +146,26 @@ class HclustFeatures:
         print("\nBest N cluster:{0}".format(best_n_clu))
         return best_n_clu
 
-    def fit(self, df_scaled, best_n_clu):
-        """fit HC on patient embeddings
+    @staticmethod
+    def fit(df_scaled, n_clu):
+        """Fit HC on patient feature data
 
-        :param df_scaled: dataframe with pid as index
-        :param best_n_clu: int
-        :return: dictionary {pid: cl}
+        Parameters
+        ----------
+        df_scaled: dataframe
+            Dataframe of scaled feature data
+        n_clu: int
+            Number of clusters
+        Returns
+        -------
+        dictionary
+            Dictionary of patient ids and correspondent
+            clusters {pid: cl}
         """
-        hclu = AgglomerativeClustering(n_clusters=best_n_clu)
+        hclu = AgglomerativeClustering(n_clusters=n_clu)
         lab_cl = hclu.fit_predict(df_scaled)
         silh = silhouette_score(df_scaled, lab_cl)
-        print('(*) Number of clusters %d -- Silhouette score %.2f' % (best_n_clu, silh))
+        print('(*) Number of clusters %d -- Silhouette score %.2f' % (n_clu, silh))
 
         num_count = np.unique(lab_cl, return_counts=True)[1]
         for idx, nc in enumerate(num_count):
