@@ -1,0 +1,15 @@
+sqlalchemy
+pandas
+numpy
+scikit-learn
+scipy
+glove
+jupyter
+matplotlib
+bokeh
+umap-learn
+dataclasses
+google-api-python-client
+gsheets
+oauth2client
+httplib2
