@@ -15,7 +15,7 @@ class Pembeddings:
         behr
             dictionary {pid: trm sequence}
         vocab
-            dictionary, needed idx_to_mt
+            dictionary, needed btm_to_idx
         """
         self.behr = behr
         self.vocab = vocab
@@ -59,17 +59,18 @@ class Pembeddings:
         list
             matrix of patient embeddings
         """
-        # behrs wrt timeframes
+        # We structure behrs wrt timeframes to learn word embeddings.
+        # Structure of bvect = [Penc, aoa, tokens].
         behr_tf = {}
-        for pid, bseq in self.behr.items():
-            for _, aoa, tkns in bseq:
+        for pid, bvect in self.behr.items():
+            for el in bvect:
                 if pid not in behr_tf:
-                    behr_tf[pid] = {self.__age_tf(aoa): list(map(lambda x: int(x),
-                                                                 tkns))}
+                    behr_tf[pid] = {self.__age_tf(el[1]): list(map(lambda x: int(self.vocab[x]),
+                                                                   el[2:]))}
                 else:
-                    behr_tf[pid].setdefault(self.__age_tf(aoa),
-                                            list()).extend(list(map(lambda x: int(x),
-                                                                    tkns)))
+                    behr_tf[pid].setdefault(self.__age_tf(el[1]),
+                                            list()).extend(list(map(lambda x: int(self.vocab[x]),
+                                                                    el[2:])))
         corpus = self.__build_corpus(behr_tf)
         coocc_dict = self.__build_cooccur(corpus, window_size=20)
 
@@ -141,7 +142,7 @@ class Pembeddings:
         Parameters
         ----------
         corpus
-            behr dictionary as returned by _build_corpus
+            behr dictionary as returned by __build_corpus
         window_size
             int, size of the context window
 
@@ -154,7 +155,7 @@ class Pembeddings:
 
         # Collect cooccurrences internally as a sparse matrix for passable
         # indexing speed; we'll convert into a list later
-        cooccurrences = {k: {} for k in self.vocab}
+        cooccurrences = {k: {} for k in self.vocab.values()}
 
         for pid, sentence in corpus.items():
 

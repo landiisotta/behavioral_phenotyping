@@ -6,10 +6,11 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 
 # Create a custom logger, logging to file
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('descriptive_statistics')
 
 # Create handlers
-c_handler = logging.FileHandler('/logs/descriptive_statistics.log')
+c_handler = logging.FileHandler('./logs/descriptive_statistics.log',
+                                mode='w')
 c_handler.setLevel(logging.INFO)
 
 # Create formatters and add it to handlers
@@ -41,33 +42,33 @@ class DataStatistics:
                                        'person-encounters.csv'),
                           sep=',',
                           header=0)
-        dem['age'] = list(map(lambda x: self.__age(x), dem.dob.tolist()))
+        dem['AGE'] = list(map(lambda x: self.__age(x), dem.DOB.tolist()))
 
-        logging.info('N of subjects: %d', len(dem.id_subj.unique()))
-        logging.info('%s', pd.crosstab(dem.sex, columns='count'))
-        logging.info('%s\n',
+        logger.info('N of subjects: %d\n', len(dem.ID_SUBJ.unique()))
+        logger.info('%s\n', pd.crosstab(dem.SEX, columns='count'))
+        logger.info('%s\n',
                      dem.describe())
 
-        logging.info("Instrument list:")
-        for ins in sorted(enc.instrument.unique()):
-            logging.info('$s', ins)
-        logging.info('%s\n',
+        logger.info("Instrument list:")
+        for ins in sorted(enc.INSTRUMENT.unique()):
+            logger.info('%s', ins)
+        logger.info('\n%s\n',
                      enc.describe())
         # Consider assessment as number of administered instruments
         ass_dict = {}
         for _, row in enc.iterrows():
-            ass_dict.setdefault(row.id_subj, list()).append(row.instrument)
+            ass_dict.setdefault(row.ID_SUBJ, list()).append(row.INSTRUMENT)
         count_ass = {'pid': list(ass_dict.keys()),
                      'ass_count': [len(ass_dict[pid]) for pid in ass_dict]}
-        logging.info("Assessment (i.e., administered instrument counts) statistics:")
-        logging.info('%s\n', pd.DataFrame(count_ass).describe())
+        logger.info("Assessment (i.e., administered instrument counts) statistics:")
+        logger.info('%s\n', pd.DataFrame(count_ass).describe())
 
         # return period span
-        logging.info(f'Period span: {enc.doa.min()} -- {enc.doa.max()}\n')
+        logger.info(f'Period span: {enc.DOA.min()} -- {enc.DOA.max()}\n')
 
         # plot histogram with number of encounters
         plt.figure(figsize=(40, 20))
-        plt.bar(dem.id_subj, dem.n_enc)
+        plt.bar(dem.ID_SUBJ, dem.N_ENC)
         plt.tick_params(axis='x', rotation=90)
         plt.tick_params(axis='y', labelsize=30)
         plt.savefig(os.path.join(ut.DATA_FOLDER_PATH,

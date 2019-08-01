@@ -33,7 +33,7 @@ class Penc:
 
 # Configure the logging, logging to file.
 logging.basicConfig(level=logging.INFO,
-                    filename='/logs/dataset.log',
+                    filename='./logs/pipeline.log',
                     filemode='w')
 
 # Create new directory or point to an existing one to store data.
@@ -65,6 +65,7 @@ def access_db():
     for table_name in metadata.tables:
         df_tables[table_name] = pd.read_sql_table(table_name,
                                                   con=conn,
+                                                  parse_dates=['date_birth', 'date_ass'],
                                                   index_col='id').drop('form_info',
                                                                        axis=1)
     return df_tables
@@ -134,7 +135,8 @@ def cohort_info(tables_dict):
     # dump info to csv files
     _dump_info(demog_dict, enc_dict)
     # save log with statistics
-    DataStatistics.compute(data_dir)
+    logging.info('\nComputing basics statistics (DataStatistics module)\n')
+    DataStatistics().compute(data_dir)
     return demog_dict, enc_dict
 
 
@@ -147,16 +149,20 @@ def age_ass(dob, doa):
     """
     Parameters
     ----------
-    dob: pandas Timestamp
-    doa: pandas Timestamp
+    dob: str
+        date of birth
+    doa: str
+        date of assessment
 
     Return
     ------
     float
         age of assessment
     """
+    dob = pd.Timestamp(dob)
+    doa = pd.Timestamp(doa)
     days_in_year = 365.2425
-    aoa = (dob - doa).days / days_in_year
+    aoa = (doa - dob).days / days_in_year
     return aoa
 
 
@@ -173,14 +179,17 @@ def _correct_datetime(date_ts):
     """
     # correct wrong dates
     today = datetime.today()
-    if date_ts.year == today.year and date_ts.month >= today.month:
-        corrected_date = pd.Timestamp(year=date_ts.year,
-                                      month=date_ts.day,
-                                      day=date_ts.month)
-    else:
-        corrected_date = date_ts
+    try:
+        if date_ts.year == today.year and date_ts.month >= today.month:
+            corrected_date = pd.Timestamp(year=date_ts.year,
+                                          month=date_ts.day,
+                                          day=date_ts.month)
+        else:
+            corrected_date = date_ts
 
-    return corrected_date.strftime("%d/%m/%Y")
+        return corrected_date.strftime("%d/%m/%Y")
+    except AttributeError:
+        return date_ts
 
 
 def _dump_info(demog_info, enc_info):
@@ -199,7 +208,10 @@ def _dump_info(demog_info, enc_info):
         wr = csv.writer(f, delimiter=',', quoting=csv.QUOTE_MINIMAL)
         wr.writerow(['ID_SUBJ', 'SEX', 'DOB', 'DOA', 'AOA', 'INSTRUMENT'])
         for pid in sorted(enc_info.keys()):
-            for tup in enc_info[pid].doa_instrument.sort(key=lambda x: (x[1], x[0])):
+            enc_info[pid].doa_instrument.sort(key=lambda x: (x[0].split('/')[2],
+                                                             x[0].split('/')[1],
+                                                             x[1]))
+            for tup in enc_info[pid].doa_instrument:
                 wr.writerow([pid, enc_info[pid].sex,
                              enc_info[pid].dob, tup[0],
                              age_ass(enc_info[pid].dob, tup[0]),

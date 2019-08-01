@@ -28,7 +28,7 @@ n_iter = 1
 subsampl = 0.8
 
 # Glove parameters.
-n_epoch = 100
+n_epoch = 30
 batch_size = 5
 
 # Dimension of TruncatedSVD and Glove word embeddings.
@@ -54,6 +54,7 @@ c_out = ['bisque', 'mintcream', 'cornsilk', 'lavenderblush', 'aliceblue', 'antiq
          'paleturquoise', 'palevioletred', 'papayawhip', 'peachpuff', 'mistyrose', 'lemonchiffon', 'lightblue',
          'seashell', 'white', 'blanchedalmond', 'oldlace', 'moccasin', 'snow', 'darkgray', 'ivory', 'whitesmoke']
 
+
 select_clm = {
     1: {'ados-2modulo1': ['al1.a2', 'al1.a8', 'al1.b1', 'al1.b3', 'al1.b4',
                           'al1.b5', 'al1.b9', 'al1.b10', 'al1.b11', 'al1.b12',
@@ -66,7 +67,7 @@ select_clm = {
                           'b5', 'b6', 'b8', 'b11', 'b12',
                           'a4', 'd1', 'd2', 'd4'],
         'ados-2modulo3': ['a7', 'a8', 'a9', 'b1', 'b2', 'b4', 'b7',
-                          'b9', 'b10', 'b11', 'sa_tot', 'a4', 'd1',
+                          'b9', 'b10', 'b11', 'a4', 'd1',
                           'd2', 'd4'],
         'ados-2modulotoddler': ['al1.a2', 'al1.a8',
                                 'al1.b1', 'al1.b4', 'al1.b5', 'al1.b6', 'al1.b12',
@@ -89,6 +90,9 @@ select_clm = {
         'wais-iv': ['scaled_bd', 'scaled_si', 'scaled_mr', 'scaled_vc', 'scaled_ss',
                     'scaled_oa', 'scaled_in', 'scaled_cd', 'scaled_co',
                     'scaled_pc'],
+        'wais-r': ['scaled_bd', 'scaled_si', 'scaled_vc',
+                   'scaled_oa', 'scaled_in', 'scaled_co',
+                   'scaled_pc'],
         'wisc-iii': ['scaled_pc', 'scaled_in', 'scaled_cd', 'scaled_si', 'scaled_bd', 'scaled_oa',
                      'scaled_co', 'scaled_ss'],
         'wisc-iv': ['scaled_bd', 'scaled_si', 'scaled_pcn', 'scaled_cd', 'scaled_vc',
@@ -116,6 +120,7 @@ select_clm = {
         'vineland-ii': ['caregiver', 'sum_CD', 'sum_DLSD', 'sum_SD', 'sum_MSD'],
         'wais-iv': ['sumScaled_VC', 'sumScaled_PR', 'sumScaled_WM',
                     'sumScaled_PS', 'sumScaled_FS'],
+        'wais-r': ['sumScaled_V', 'sumScaled_P'],
         'wisc-iii': ['sumScaled_V', 'sumScaled_P',
                      'sumScaled_FS', 'sumScaled_VC', 'sumScaled_PO',
                      'sumScaled_FD', 'sumScaled_PS'],
@@ -138,6 +143,7 @@ select_clm = {
         'srs': ['parent', 'raw_tot'],
         'vineland-ii': ['caregiver', 'standard_ABC'],
         'wais-iv': ['FSIQ'],
+        'wais-r': ['FSIQ'],
         'wisc-iii': ['FSIQ'],
         'wisc-iv': ['FSIQ'],
         'wppsi': ['FSIQ'],
@@ -157,6 +163,7 @@ select_clm = {
         'vineland-ii': ['caregiver', 'sum_CD', 'standard_CD', 'sum_DLSD', 'standard_DLSD',
                         'sum_SD', 'standard_SD', 'sum_MSD', 'standard_MSD', 'standard_ABC'],
         'wais-iv': ['sumScaled_FS'],
+        'wais-r': ['sumScaled_FS'],
         'wisc-iii': ['sumScaled_FS'],
         'wisc-iv': ['sumScaled_FS'],
         'wppsi': ['sumScaled_FS'],

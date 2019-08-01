@@ -15,93 +15,72 @@ class Visualization:
     scatter plot, dendrogram, heatmap.
     """
 
-    def __init__(self, subject_info, subject_enc, col_dict, c_out):
-
-        self.c_out = c_out  # List of colors to exclude
-        self.col_dict = col_dict  # Dictionary of colors from matplotlib
-        colormap = [c for c in self.col_dict if c not in self.c_out]
-        self.colormap = colormap
-
+    def __init__(self, subject_info, col_dict, c_out):
         """
         Parameters
         ----------
         subject_info: dictionary
             Dictionary with subject demographics (Pinfo dataclass)
             as returned by cohort_info method in dataset module
-        subject_enc: dictionary
-            Dictionary with subject encounters info (Penc dataclass)
-            as returned by cohort_info method in dataset module
         """
+        self.c_out = c_out  # List of colors to exclude
+        self.col_dict = col_dict  # Dictionary of colors from matplotlib
+        colormap = [c for c in self.col_dict if c not in self.c_out]
+        self.colormap = colormap
         self.subject_info = subject_info
-        self.subject_enc = subject_enc
 
-    def scatterplot_dendrogram(self, X, subc_dict,
-                               fig_height, fig_width):
-        """Scatterplot and dendrogram for clustering
+    @staticmethod
+    def data_scatter_dendrogram(X,
+                                subc_dict,
+                                pid_list=None,
+                                **kwargs):
+        """ Prepare the data to be visualized in umap scatterplot and
+        dendrogram
 
         Parameters
         ----------
-        X: np array or dataframe
-            Umap projections of patients
+        X: array, dataframe
+            either an array (as returned by patient embedding functions)
+            or a dataframe (feature dataset)
         subc_dict: dictionary
-            dictionary with patient id and subcluster
-        fig_height, fig_width: int
-        """
+            dictionary of pids and subcluster labels
+        pid_list: list
+            list of pids as ordered in X
+        kwargs: kewyword arguments to be passed to UMAP
 
-        # if X is dataframe, transform X in numpy array
+        Returns
+        -------
+        numpy array
+            umap projection
+        list
+            list of tuple with pid and subcluster label
+        """
         if isinstance(X, pd.DataFrame):
+            pid_list = list(X.index)
             X = X.to_numpy()
 
-        colors = [self.colormap[cl] for cl in sorted(list(set(subc_dict.values())))]
+        umap_mtx = umap.UMAP(**kwargs).fit_transform(X)
 
-        umap_mtx = umap.UMAP(random_state=42).fit_transform(X)
-        # Bokeh scatterplot
-        self._scatter_plot(umap_mtx, subc_dict, colors, fig_width, fig_height)
+        return umap_mtx, [(pid, subc_dict[pid]) for pid in pid_list]
 
-        # Dendrogram
-        linked = linkage(X, 'ward')
-        # Color mapping
-        dflt_col = "#808080"  # Unclustered gray
-        # * rows in Z correspond to "inverted U" links that connect clusters
-        # * rows are ordered by increasing distance
-        # * if the colors of the connected clusters match, use that color for link
-        link_cols = {}
-        for idx, lidx in enumerate(linked[:, :2].astype(int)):
-            c1, c2 = (link_cols[x] if x > len(linked) else colors[list(subc_dict.values())[x]]
-                      for x in lidx)
-            link_cols[idx + 1 + len(linked)] = c1 if c1 == c2 else dflt_col
-
-        plt.figure(figsize=(fig_height, fig_width))
-        dendrogram(Z=linked,
-                   labels=np.array(subc_dict.values()),
-                   color_threshold=None,
-                   leaf_font_size=5, leaf_rotation=0,
-                   link_color_func=lambda x: link_cols[x])
-        plt.show()
-
-    def heatmap_feat(self, X,
-                     X_scaled,
-                     subc_dict,
-                     fig_height, fig_width):
-        """ Bokeh heatmap for the visualization of scaled scores in the
-        different subclusters. Hovertool displaying subject info and raw
-        scores.
+    def data_heatmap_feat(self, X, X_scaled, subc_dict):
+        """ Prepare data as input to heatmap feature.
 
         Parameters
         ----------
         X: dataframe
-            Features dataframe, index = subject ids
+            Dataframe with raw feature values
         X_scaled: dataframe
-            Feature scaled scores
+            Dataframe with scaled feature values
         subc_dict: dictionary
-            Dictionary of subject ids and subclusters
-        fig_height, fig_width: int
+            Dictionary with subject ids and subcluster labels
+
+        Returns
+        -------
+        dataframe
+            Object with both scaled and row values. A column with subcluster and
+            subject id is added.
         """
-
-        colors = ["#75968f", "#a5bab7", "#c9d9d3", "#e2e2e2",
-                  "#dfccce", "#ddb7b1", "#cc7878", "#933b41",
-                  "#550b1d"]
-
         X_scaled = pd.DataFrame(X_scaled.sort_index().stack(),
                                 columns=['score_sc']).reset_index()
         X_scaled.columns = ['clpid', 'feat', 'score_sc']
@@ -116,6 +95,143 @@ class Visualization:
         X_scaled['score'] = X['score']
 
         X_scaled = self._modify_df(X_scaled)
+
+        return X_scaled
+
+    def data_heatmap_emb(self, X, vocab, subc_dict):
+        """ Prepare data as input to heatmap embeddings.
+
+        Parameters
+        ----------
+        X: dictionary
+            BEHR dictionary
+        vocab: dictionary
+            bt_to_idx vocabulary
+        subc_dict: dictionary
+            Dictionary with pid and subcluster labels
+
+        Returns
+        -------
+        dataframe
+            Dataframe with raw scores and scaled scores for subclusters.
+            clpid columns with joined subcluster label and pid.
+        """
+        # Build feature list
+        c_lab = sorted(set(['::'.join(lab.split('::')[:-1])
+                            for lab in vocab.keys()]))
+
+        dict_age = {}
+        for p, behr in X.items():
+            for vect in behr:
+                if (p, vect[1]) not in dict_age:
+                    dict_age[(p, vect[1])] = {}
+                for t in vect[2:]:
+                    ss = t.split('::')
+                    dict_age[(p, vect[1])].setdefault('::'.join(ss[:-1]),
+                                                      list()).append(int(ss[-1]))
+        # Create dataframe with cl-pid as index
+        val_dict = {}
+        indx = []
+        for vect in sorted(list(dict_age.keys())):
+            for f in c_lab:
+                try:
+                    if len(dict_age[vect][f]) == 1:
+                        val_dict.setdefault(f, list()).extend(dict_age[vect][f])
+                    else:  # Mean of scores if multiple score per assessment
+                        val_dict.setdefault(f, list()).append(np.mean(dict_age[vect][f]))
+                except KeyError:
+                    val_dict.setdefault(f, list()).append(None)
+            indx.append(('-'.join([str(subc_dict[vect[0]]), vect[0]]), vect[1]))
+
+        # create dataframe with cl-pi as index
+        emb_df = pd.DataFrame(val_dict, index=indx)
+        emb_df_imp = emb_df.fillna(emb_df.mean(), inplace=False)
+
+        scaler = StandardScaler()
+        emb_df_scaled = scaler.fit_transform(emb_df_imp.values)
+        emb_df_scaled = pd.DataFrame(emb_df_scaled, index=indx,
+                                     columns=emb_df.columns)
+
+        emb_df = pd.DataFrame(emb_df.stack(dropna=False),
+                              columns=['score']).reset_index()
+        emb_df_scaled = pd.DataFrame(emb_df_scaled.stack(),
+                                     columns=['score_sc']).reset_index()
+        emb_df_scaled['score'] = emb_df['score']
+        emb_df_scaled.columns = ['cllab_aoa', 'feat', 'score_sc', 'score']
+
+        emb_df_scaled = self._modify_df(emb_df_scaled)
+
+        emb_df_scaled['clpid'] = [tup[0] for tup in emb_df_scaled['cllab_aoa']]
+        emb_df_scaled['aoa'] = [tup[1] for tup in emb_df_scaled['cllab_aoa']]
+
+        emb_df_scaled = emb_df_scaled.dropna()
+
+        return emb_df_scaled
+
+    def scatterplot_dendrogram(self,
+                               X,
+                               umap_mtx,
+                               pid_subc_list,
+                               fig_height,
+                               fig_width):
+        """Scatterplot and dendrogram for clustering.
+
+        Parameters
+        ----------
+        X: numpy array or dendrogram
+            dendrogram input
+        umap_mtx: np array
+            Umap projections of patients
+        pid_subc_list: list of tuples
+            list of pid and subclusters tuples as ordered in X
+        fig_height, fig_width: int
+        """
+
+        subc_list = [el[1] for el in pid_subc_list]
+
+        colors = [self.colormap[cl] for cl in sorted(list(set(subc_list)))]
+        # Bokeh scatterplot
+        self._scatter_plot(umap_mtx, pid_subc_list, colors, fig_width, fig_height)
+
+        # Dendrogram
+        linked = linkage(X, 'ward')
+        # Color mapping
+        dflt_col = "#808080"  # Unclustered gray
+        # * rows in Z correspond to "inverted U" links that connect clusters
+        # * rows are ordered by increasing distance
+        # * if the colors of the connected clusters match, use that color for link
+        link_cols = {}
+        for idx, lidx in enumerate(linked[:, :2].astype(int)):
+            c1, c2 = (link_cols[x] if x > len(linked) else colors[subc_list[x]]
+                      for x in lidx)
+            link_cols[idx + 1 + len(linked)] = c1 if c1 == c2 else dflt_col
+
+        plt.figure(figsize=(fig_height, fig_width))
+        dendrogram(Z=linked,
+                   labels=np.array(subc_list),
+                   color_threshold=None,
+                   leaf_font_size=5, leaf_rotation=0,
+                   link_color_func=lambda x: link_cols[x])
+        plt.show()
+
+    @staticmethod
+    def heatmap_feat(X_scaled,
+                     fig_height,
+                     fig_width):
+        """ Bokeh heatmap for the visualization of scaled scores in the
+        different subclusters. Hovertool displaying subject info and raw
+        scores.
+
+        Parameters
+        ----------
+        X_scaled: dataframe
+            Feature scaled scores
+        fig_height, fig_width: int
+        """
+
+        colors = ["#75968f", "#a5bab7", "#c9d9d3", "#e2e2e2",
+                  "#dfccce", "#ddb7b1", "#cc7878", "#933b41",
+                  "#550b1d"]
 
         mapper = LinearColorMapper(palette=colors,
                                    low=X_scaled.score_sc.min(),
@@ -159,75 +275,23 @@ class Visualization:
         p.add_layout(color_bar, 'right')
         show(p)
 
-    def heatmap_emb(self, X, vocab, subc_dict, ## TO MODIFY!! X? USE SUBJECT INFO DO WE NEED Penc IN BEHR?
-                    fig_height, fig_width):
+    @staticmethod
+    def heatmap_emb(emb_df_scaled,
+                    fig_height,
+                    fig_width):
         """ Bokeh heatmap of scaled scores for patient embedding subclusters.
         Hovertool with subject info and subject raw scores.
 
         Parameters
         ----------
-        X: dictionary
-            Behavioral EHRs {pid: [Penc, aoa, vocab_idx]} per instrument
-        vocab: dictionary
-            idx_to_bt vocabulay
-        subc_dict: dictionary
-            Dictionary with subject ids and subcluster label
+        emb_df_scaled: dataframe
+            output of data_heatmap_emb
         fig_height, fig_width: int
         """
 
         colors = ["#75968f", "#a5bab7", "#c9d9d3", "#e2e2e2",
                   "#dfccce", "#ddb7b1", "#cc7878", "#933b41",
                   "#550b1d"]
-
-        # Build feature list
-        c_lab = sorted(set(['::'.join(lab.split('::')[:-1])
-                            for lab in vocab.values()]))
-
-        dict_age = {}
-        for p, behr in X.items():
-            for vect in behr:
-                if (p, vect[1]) not in dict_age:
-                    dict_age[(p, vect[1])] = {}
-                for t in vect[2:]:
-                    ss = vocab[t].split('::')
-                    dict_age[(p, vect[1])].setdefault('::'.join(ss[:-1]),
-                                                      list()).append(int(ss[-1]))
-        # Create dataframe with cl-pid as index
-        val_dict = {}
-        indx = []
-        for vect in sorted(list(dict_age.keys())):
-            for f in c_lab:
-                try:
-                    if len(dict_age[vect][f]) == 1:
-                        val_dict.setdefault(f, list()).extend(dict_age[vect][f])
-                    else:  # Mean of scores if multiple score per assessment
-                        val_dict.setdefault(f, list()).append(np.mean(dict_age[vect][f]))
-                except KeyError:
-                    val_dict.setdefault(f, list()).append(None)
-            indx.append(('-'.join([str(subc_dict[vect[0]]), vect[0]]), vect[1]))
-
-        # create dataframe with cl-pi as index
-        emb_df = pd.DataFrame(val_dict, index=indx)
-        emb_df_imp = emb_df.fillna(emb_df.mean(), inplace=False)
-
-        scaler = StandardScaler()
-        emb_df_scaled = scaler.fit_transform(emb_df_imp.values)
-        emb_df_scaled = pd.DataFrame(emb_df_scaled, index=indx,
-                                     columns=emb_df.columns)
-
-        emb_df = pd.DataFrame(emb_df.stack(dropna=False),
-                              columns=['score']).reset_index()
-        emb_df_scaled = pd.DataFrame(emb_df_scaled.stack(),
-                                     columns=['score_sc']).reset_index()
-        emb_df_scaled['score'] = emb_df['score']
-        emb_df_scaled.columns = ['cllab_aoa', 'feat', 'score_sc', 'score']
-
-        emb_df_scaled = self._modify_df(emb_df_scaled)
-
-        emb_df_scaled['clpid'] = [tup[0] for tup in emb_df_scaled['cllab_aoa']]
-        emb_df_scaled['aoa'] = [tup[1] for tup in emb_df_scaled['cllab_aoa']]
-
-        emb_df_scaled = emb_df_scaled.dropna()
 
         mapper = LinearColorMapper(palette=colors,
                                    low=emb_df_scaled.score_sc.min(),
@@ -273,34 +337,39 @@ class Visualization:
         p.add_layout(color_bar, 'right')
         show(p)
 
-    def _scatter_plot(self, umap_mtx, subc_dict, colors,
-                      fig_height, fig_width):
+    def _scatter_plot(self,
+                      umap_mtx,
+                      pid_subc_list,
+                      colors,
+                      fig_height,
+                      fig_width):
         """Bokeh scatterplot to visualize in jupyter clusters and subject info.
 
         Parameters
         ----------
         umap_mtx: np array
             Array with UMAP projections
-        subc_dict: dictionary
-            Dictionary with patient id and subcluster label
+        pid_subc_list: list of tuples
+            list of pids ordered as in umap_mtx and subcluster labels
         colors: list
             Color list
         fig_height, fig_width: int
             Figure dimensions
         """
 
-        subc_lab = [str(lab) for lab in subc_dict.values()]
+        pid_list = list(map(lambda x: x[0], pid_subc_list))
+        subc_list = list(map(lambda x: x[1], pid_subc_list))
 
         source = ColumnDataSource(dict(
             x=umap_mtx[:, 0].tolist(),
             y=umap_mtx[:, 1].tolist(),
-            pid=list(subc_dict.keys()),
-            subc=subc_lab,
-            bdate=[self.subject_info[pid].bdate for pid in subc_dict.keys()],
-            sex=[self.subject_info[pid].sex for pid in subc_dict.keys()],
-            n_enc=[self.subject_info[pid].n_enc for pid in subc_dict.keys()]))
+            pid=pid_list,
+            subc=list(map(lambda x: str(x), subc_list)),
+            bdate=[self.subject_info[pid].dob for pid in pid_list],
+            sex=[self.subject_info[pid].sex for pid in pid_list],
+            n_enc=[self.subject_info[pid].n_enc for pid in pid_list]))
 
-        cmap = CategoricalColorMapper(factors=sorted(list(set(subc_lab))),
+        cmap = CategoricalColorMapper(factors=[str(lab) for lab in range(len(set(subc_list)))],
                                       palette=colors)
         TOOLTIPS = [('pid', '@pid'),
                     ('subc', '@subc'),
@@ -326,7 +395,7 @@ class Visualization:
         show(p)
 
     def _modify_df(self, df):
-        """ Adds subject info to dataframe
+        """ Adds subject info to dataframe for heatmaps
 
         Parameters
         ----------
@@ -347,13 +416,13 @@ class Visualization:
             if isinstance(pid, str):
                 slab = pid.split('-')[1]
                 sex_vect.append(self.subject_info[slab].sex)
-                bdate_vect.append(self.subject_info[slab].bdate)
-                n_enc_vect.append(self.subject_enc[slab].n_enc)
+                bdate_vect.append(self.subject_info[slab].dob)
+                n_enc_vect.append(self.subject_info[slab].n_enc)
             else:
                 slab = pid[0].split('-')[1]
                 sex_vect.append(self.subject_info[slab].sex)
-                bdate_vect.append(self.subject_info[slab].bdate)
-                n_enc_vect.append(self.subject_enc[slab].n_enc)
+                bdate_vect.append(self.subject_info[slab].dob)
+                n_enc_vect.append(self.subject_info[slab].n_enc)
 
         df['sex'] = sex_vect
         df['bdate'] = bdate_vect
