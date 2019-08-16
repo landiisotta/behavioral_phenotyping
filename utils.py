@@ -23,15 +23,16 @@ min_cl = 3
 max_cl = 15
 
 # Number of clustering iterations.
-n_iter = 1
+n_iter = 100
 # Subsampling ratio for clustering.
 subsampl = 0.8
 
-# Glove parameters.
-n_epoch = 30
-batch_size = 5
+# Glove/Word2Vec parameters.
+n_epoch = 50
+batch_size = 205
+learning_rate = 0.01
 
-# Dimension of TruncatedSVD and Glove word embeddings.
+# Dimension of TruncatedSVD and Glove/Word2vec word embeddings.
 n_dim = 10
 
 # Vocabulary and behavioral ehr file names.

@@ -3,6 +3,8 @@ from sklearn.decomposition import TruncatedSVD
 import glove
 import numpy as np
 import utils as ut
+import torch
+import torch.nn.functional as F
 
 
 class Pembeddings:
@@ -48,6 +50,66 @@ class Pembeddings:
 
         return pid_list, svd_mtx
 
+    def word2vec_emb(self):
+        """Skip-gram word2vec
+
+        Returns
+        -------
+        list
+            pids list
+        list
+            matrix of patient embeddings
+        numpy array:
+            first layer weight matrix (vocab size, embedding dim)
+        numpy array:
+            second layer weight matrix (vocab size, embedding dim)
+
+        """
+        corpus = self.__build_corpus()
+        idx_pairs = self.__get_idx_pairs(corpus, window_size=10)
+
+        W1 = torch.randn(ut.n_dim, len(self.vocab),
+                         dtype=torch.float32,
+                         requires_grad=True)
+        W2 = torch.randn(len(self.vocab), ut.n_dim,
+                         dtype=torch.float32,
+                         requires_grad=True)
+
+        for epoch in range(ut.n_epoch):
+            loss_val = 0
+            for data, target in idx_pairs:
+                x = self.__get_input_layer(data).float()
+                y_true = torch.from_numpy(np.array([target])).long()
+
+                z1 = torch.matmul(W1, x)
+                z2 = torch.matmul(W2, z1)
+
+                log_softmax = F.log_softmax(z2, dim=0)
+
+                loss = F.nll_loss(log_softmax.view(1, -1), y_true)
+                loss_val += loss.item()
+                loss.backward()
+                w1 = W1.detach()
+                w2 = W2.detach()
+                w1 -= ut.learning_rate * W1.grad
+                w2 -= ut.learning_rate * W2.grad
+
+                W1.grad.zero_()
+                W2.grad.zero_()
+
+            if epoch % 10 == 0:
+                print(f'Loss at epoch {epoch}: {loss_val/len(idx_pairs)}')
+
+        p_emb = []
+        pid_list = []
+        for pid, term in corpus.items():
+            if len(term) != 0:
+                pid_list.append(pid)
+                p_emb.append(np.mean([W1[:, int(t)].tolist() for t in term],
+                                     axis=0).tolist())
+
+        return pid_list, p_emb, w1.numpy(), w2.numpy()
+
     def glove_pemb(self):
         """Computes Glove embeddings from co-occurrence matrix
             and returns patient embeddings
@@ -58,26 +120,17 @@ class Pembeddings:
             pids list
         list
             matrix of patient embeddings
+        array
+            word embeddings
         """
-        # We structure behrs wrt timeframes to learn word embeddings.
-        # Structure of bvect = [Penc, aoa, tokens].
-        behr_tf = {}
-        for pid, bvect in self.behr.items():
-            for el in bvect:
-                if pid not in behr_tf:
-                    behr_tf[pid] = {self.__age_tf(el[1]): list(map(lambda x: int(self.vocab[x]),
-                                                                   el[2:]))}
-                else:
-                    behr_tf[pid].setdefault(self.__age_tf(el[1]),
-                                            list()).extend(list(map(lambda x: int(self.vocab[x]),
-                                                                    el[2:])))
-        corpus = self.__build_corpus(behr_tf)
-        coocc_dict = self.__build_cooccur(corpus, window_size=20)
+
+        corpus = self.__build_corpus()
+        coocc_dict = self.__build_cooccur(corpus, window_size=10)
 
         model = glove.Glove(coocc_dict, alpha=0.75, x_max=100.0, d=ut.n_dim)
         print("\nTraining Glove embeddings...")
         for epoch in range(ut.n_epoch):
-            err = model.train(batch_size=ut.batch_size)
+            err = model.train(batch_size=ut.batch_size, step_size=0.01)
             if epoch % 10 == 0:
                 print("epoch %d, error %.3f" % (epoch, err), flush=True)
 
@@ -90,7 +143,7 @@ class Pembeddings:
                 p_emb.append(np.mean([wemb[int(t)].tolist() for t in term],
                                      axis=0).tolist())
 
-        return pid_list, p_emb
+        return pid_list, p_emb, wemb
 
     @staticmethod
     def __age_tf(age):
@@ -115,8 +168,7 @@ class Pembeddings:
         else:
             return 'F5'
 
-    @staticmethod
-    def __build_corpus(behr):
+    def __build_corpus(self):
         """random shuffle terms in time slots
 
         Parameters
@@ -126,15 +178,72 @@ class Pembeddings:
         Return
         ------
         dictionary
-            {pid: trm list set and shuffles wrt to time slots F1-F5}
+            {pid: term list set and shuffles wrt to time slots F1-F5}
         """
+        # We structure behrs wrt timeframes to learn word embeddings.
+        # Structure of bvect = [Penc, aoa, tokens].
+        behr_tf = {}
+        for pid, bvect in self.behr.items():
+            for el in bvect:
+                if pid not in behr_tf:
+                    behr_tf[pid] = {self.__age_tf(el[1]): list(map(lambda x: int(self.vocab[x]),
+                                                                   el[2:]))}
+                else:
+                    behr_tf[pid].setdefault(self.__age_tf(el[1]),
+                                            list()).extend(list(map(lambda x: int(self.vocab[x]),
+                                                                    el[2:])))
         corpus = {}
-        for pid, tf_dict in behr.items():
+        for pid, tf_dict in behr_tf.items():
             for tf in sorted(tf_dict.keys()):
-                np.random.shuffle(behr[pid][tf])
+                np.random.shuffle(behr_tf[pid][tf])
                 corpus.setdefault(pid,
-                                  list()).extend(behr[pid][tf])
+                                  list()).extend(behr_tf[pid][tf])
         return corpus
+
+    @staticmethod
+    def __get_idx_pairs(corpus, window_size):
+        """Creates the center-context vectors for Word2vec predictions
+
+        Parameters
+        ----------
+        corpus: dictionary
+            {pid: behr}
+        window_size: int
+            size of the context
+        Returns
+        -------
+        numpy array
+        """
+        idx_pairs = []
+        # for each sentence
+        for sentence in corpus.values():
+            # for each word, treated as center word
+            for center_word_pos in range(len(sentence)):
+                # for each window position
+                for w in range(-window_size, window_size + 1):
+                    context_word_pos = center_word_pos + w
+                    # make sure not jump out sentence
+                    if context_word_pos < 0 or context_word_pos >= len(sentence) or center_word_pos == context_word_pos:
+                        continue
+                    context_word_idx = sentence[context_word_pos]
+                    idx_pairs.append((sentence[center_word_pos], context_word_idx))
+
+        return np.array(idx_pairs)
+
+    def __get_input_layer(self, word_idx):
+        """Transforms a token into a one-hot encoded representation
+
+        Parameters
+        ----------
+        word_idx: int
+            word token
+        Returns
+        -------
+        torch tensor
+        """
+        x = torch.zeros(len(self.vocab), dtype=torch.float32)
+        x[word_idx] = 1.0
+        return x
 
     def __build_cooccur(self, corpus, window_size=10):
         """Build a word co-occurrence dictionary for the given corpus.

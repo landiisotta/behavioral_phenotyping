@@ -6,13 +6,13 @@ from bokeh.models import LinearColorMapper, BasicTicker, PrintfTickFormatter, \
     ColorBar, HoverTool, ColumnDataSource, CategoricalColorMapper
 from bokeh.plotting import figure, show, output_notebook
 import numpy as np
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
 from math import pi
 
 
 class Visualization:
     """Class for the visualization of data and results. It returns:
-    scatter plot, dendrogram, heatmap.
+    scatter plot, dendrogram, heatmap, plot Glove embeddings.
     """
 
     def __init__(self, subject_info, col_dict, c_out):
@@ -58,12 +58,53 @@ class Visualization:
         if isinstance(X, pd.DataFrame):
             pid_list = list(X.index)
             X = X.to_numpy()
+        else:
+            scaler = MinMaxScaler()
+            X = scaler.fit_transform(X)
 
         umap_mtx = umap.UMAP(**kwargs).fit_transform(X)
 
         return umap_mtx, [(pid, subc_dict[pid]) for pid in pid_list]
 
-    def data_heatmap_feat(self, X, X_scaled, subc_dict):
+    @staticmethod
+    def plot_word_embedding(wemb_mtx,
+                            vocab,
+                            fig_width,
+                            fig_height,
+                            **kwargs):
+        """ Function plotting word embeddings from Glove/Word2vec after UMAP transformation
+
+        Parameters
+        ----------
+        wemb_mtx: numpy array
+            word embeddings as stored in vocabulary
+        vocab: dictionary
+            idx_to_bt dictionary
+        fig_weight, fig_height: int
+        **kwargs: n_neighbors, min_dist for UMAP module
+        """
+        scaler = MinMaxScaler()
+        wemb_mtx = scaler.fit_transform((wemb_mtx))
+
+        umap_mtx = umap.UMAP(**kwargs).fit_transform(wemb_mtx)
+
+        source = ColumnDataSource(data=dict(x=umap_mtx[:, 0],
+                                            y=umap_mtx[:, 1],
+                                            words=list(vocab.values())))
+
+        TOOLTIPS = [('word', '@words')]
+
+        plotTools = 'box_zoom, wheel_zoom, pan,  crosshair, reset, save'
+
+        p = figure(plot_width=fig_width,
+                   plot_height=fig_height,
+                   tools=plotTools)
+        p.add_tools(HoverTool(tooltips=TOOLTIPS))
+        p.scatter(x='x', y='y', size=8, source=source)
+
+        show(p)
+
+    def data_heatmap_feat(self, X, X_scaled, subc_dict, save_df=None):
         """ Prepare data as input to heatmap feature.
 
         Parameters
@@ -74,18 +115,20 @@ class Visualization:
             Dataframe with scaled feature values
         subc_dict: dictionary
             Dictionary with subject ids and subcluster labels
+        save_df: str
+            if not None it stores the file name for csv dump
 
         Returns
         -------
         dataframe
-            Object with both scaled and row values. A column with subcluster and
+            Object with both scaled and raw values. A column with subcluster and
             subject id is added.
         """
         X_scaled = pd.DataFrame(X_scaled.sort_index().stack(),
                                 columns=['score_sc']).reset_index()
         X_scaled.columns = ['clpid', 'feat', 'score_sc']
-        X_scaled['clpid'] = ['-'.join([str(subc_dict[pid]), pid])
-                             for pid in X_scaled['clpid']]
+        X_scaled['clpid'] = ['-'.join([str(subc_dict[pid]), str(pid)])
+                             for pid in X_scaled.clpid]
         X_scaled = X_scaled.sort_values(by='feat')
 
         X = pd.DataFrame(X.sort_index().stack(), columns=['score']).reset_index()
@@ -96,9 +139,12 @@ class Visualization:
 
         X_scaled = self._modify_df(X_scaled)
 
+        if save_df is not None:
+            X_scaled.to_csv(f'./data/{save_df}',
+                            index=False)
         return X_scaled
 
-    def data_heatmap_emb(self, X, vocab, subc_dict):
+    def data_heatmap_emb(self, X, vocab, subc_dict, save_df=None):
         """ Prepare data as input to heatmap embeddings.
 
         Parameters
@@ -109,6 +155,8 @@ class Visualization:
             bt_to_idx vocabulary
         subc_dict: dictionary
             Dictionary with pid and subcluster labels
+        save_df: str
+            if not None, it stores the name for csv dump file
 
         Returns
         -------
@@ -147,7 +195,7 @@ class Visualization:
         emb_df = pd.DataFrame(val_dict, index=indx)
         emb_df_imp = emb_df.fillna(emb_df.mean(), inplace=False)
 
-        scaler = StandardScaler()
+        scaler = MinMaxScaler()
         emb_df_scaled = scaler.fit_transform(emb_df_imp.values)
         emb_df_scaled = pd.DataFrame(emb_df_scaled, index=indx,
                                      columns=emb_df.columns)
@@ -166,6 +214,10 @@ class Visualization:
 
         emb_df_scaled = emb_df_scaled.dropna()
 
+        if save_df is not None:
+            emb_df_scaled.to_csv(f'./data/{save_df}',
+                                 index=False)
+
         return emb_df_scaled
 
     def scatterplot_dendrogram(self,
@@ -174,11 +226,11 @@ class Visualization:
                                pid_subc_list,
                                fig_height,
                                fig_width):
-        """Scatterplot and dendrogram for clustering.
+        """Scatterplot and dendrogram for clustering. The elbow method plot is also displayed.
 
         Parameters
         ----------
-        X: numpy array or dendrogram
+        X: numpy array or dataframe
             dendrogram input
         umap_mtx: np array
             Umap projections of patients
@@ -186,6 +238,11 @@ class Visualization:
             list of pid and subclusters tuples as ordered in X
         fig_height, fig_width: int
         """
+
+        # Scale embedding data matrix
+        if not isinstance(X, pd.DataFrame):
+            scaler = MinMaxScaler()
+            X = scaler.fit_transform(X)
 
         subc_list = [el[1] for el in pid_subc_list]
 
@@ -212,6 +269,18 @@ class Visualization:
                    color_threshold=None,
                    leaf_font_size=5, leaf_rotation=0,
                    link_color_func=lambda x: link_cols[x])
+        plt.show()
+
+        # Elbow method with clusters ranging from 2 to 15
+        last = linked[-15:, 2]
+        last_rev = last[::-1]
+        idxs = np.arange(1, len(last) + 1, dtype=int)
+        plt.plot(idxs, last_rev)
+
+        acceleration = np.diff(last, 2)  # 2nd derivative of the distances
+        acceleration_rev = acceleration[::-1]
+        plt.plot(idxs[:-2] + 1, acceleration_rev)
+        plt.xticks(idxs)
         plt.show()
 
     @staticmethod
