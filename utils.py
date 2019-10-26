@@ -19,7 +19,7 @@ Parameters
 """
 
 # Maximum and minimum number of clusters.
-min_cl = 3
+min_cl = 2
 max_cl = 15
 
 # Number of clustering iterations.
@@ -28,12 +28,17 @@ n_iter = 100
 subsampl = 0.8
 
 # Glove/Word2Vec parameters.
-n_epoch = 50
-batch_size = 205
-learning_rate = 0.01
+n_epoch_glove = 100
+n_epoch_w2v = 150
+batch_size_glove = 20
+batch_size_w2v = 20
+learning_rate_glove = 0.025
+learning_rate_w2v = 0.001
 
 # Dimension of TruncatedSVD and Glove/Word2vec word embeddings.
-n_dim = 10
+n_dim_glove = 10
+n_dim_tfidf = 10
+n_dim_w2v = 10
 
 # Vocabulary and behavioral ehr file names.
 file_names = {'vocab': 'cohort-vocab.csv',
@@ -54,8 +59,8 @@ c_out = ['bisque', 'mintcream', 'cornsilk', 'lavenderblush', 'aliceblue', 'antiq
          'lightslategray', 'lightslategrey', 'lightsteelblue', 'lightyellow', 'linen', 'palegoldenrod', 'palegreen',
          'paleturquoise', 'palevioletred', 'papayawhip', 'peachpuff', 'mistyrose', 'lemonchiffon', 'lightblue',
          'seashell', 'white', 'blanchedalmond', 'oldlace', 'moccasin', 'snow', 'darkgray', 'ivory', 'whitesmoke']
-
-
+colormap = ['royalblue', 'darkviolet', 'crimson', 'maroon', 'dimgrey', 'orange',
+            'goldenrod', 'lightseagreen', 'orchid', 'darkred', 'forestgreen', 'pink', 'sienna']
 select_clm = {
     1: {'ados-2modulo1': ['al1.a2', 'al1.a8', 'al1.b1', 'al1.b3', 'al1.b4',
                           'al1.b5', 'al1.b9', 'al1.b10', 'al1.b11', 'al1.b12',
@@ -81,7 +86,7 @@ select_clm = {
                                 'al2.d5'],
         'griffithsmentaldevelopmentscales': ['q_A', 'q_B', 'q_C', 'q_D', 'q_E', 'q_F'],
         'leiterinternationalperformancescale-revised': ['scaled_fg', 'scaled_fc', 'scaled_so',
-                                                        'scaled_rp', 'sumScaled_fr'],
+                                                        'scaled_rp'],
         'psi-sf': ['parent', 'raw_pd', 'raw_pcdi', 'raw_DC'],
         'srs': ['parent', 'raw_sa', 'raw_scog',
                 'raw_scom', 'raw_sm', 'raw_rirb'],
@@ -97,7 +102,7 @@ select_clm = {
         'wisc-iii': ['scaled_pc', 'scaled_in', 'scaled_cd', 'scaled_si', 'scaled_bd', 'scaled_oa',
                      'scaled_co', 'scaled_ss'],
         'wisc-iv': ['scaled_bd', 'scaled_si', 'scaled_pcn', 'scaled_cd', 'scaled_vc',
-                    'scaled_pc', 'raw_ca', 'scaled_ca', 'scaled_in'],
+                    'scaled_pc', 'scaled_ca', 'scaled_in'],
         'wppsi': ['scaled_in', 'scaled_vc', 'scaled_si',
                   'scaled_co', 'scaled_pc', 'scaled_bd'],
         'wppsi-iiifascia26-311': ['scaled_bd', 'scaled_in', 'scaled_oa'],
@@ -112,31 +117,28 @@ select_clm = {
         'ados-2modulo3': ['sa_tot', 'rrb_tot'],
         'ados-2modulotoddler': ['al1.sa_tot', 'al2.sa_tot',
                                 'al1.rrb_tot', 'al2.rrb_tot'],
-        'griffithsmentaldevelopmentscales': ['q_A', 'q_B', 'q_C', 'q_D', 'q_E', 'q_F'],
-        'leiterinternationalperformancescale-revised': ['scaled_fg', 'scaled_fc', 'scaled_so',
-                                                        'scaled_rp', 'sumScaled_fr'],
-        'psi-sf': ['parent', 'raw_pd', 'raw_pcdi', 'raw_DC'],
-        'srs': ['parent', 'raw_sa', 'raw_scog',
-                'raw_scom', 'raw_sm', 'raw_rirb'],
-        'vineland-ii': ['caregiver', 'sum_CD', 'sum_DLSD', 'sum_SD', 'sum_MSD'],
-        'wais-iv': ['sumScaled_VC', 'sumScaled_PR', 'sumScaled_WM',
-                    'sumScaled_PS', 'sumScaled_FS'],
-        'wais-r': ['sumScaled_V', 'sumScaled_P'],
-        'wisc-iii': ['sumScaled_V', 'sumScaled_P',
-                     'sumScaled_FS', 'sumScaled_VC', 'sumScaled_PO',
-                     'sumScaled_FD', 'sumScaled_PS'],
-        'wisc-iv': ['sumScaled_VC', 'sumScaled_PR',
-                    'sumScaled_WM', 'sumScaled_PS', 'sumScaled_FS'],
-        'wppsi': ['sumScaled_V', 'sumScaled_P',
-                  'sumScaled_FS'],
-        'wppsi-iiifascia26-311': ['sumScaled_V', 'sumScaled_P', 'sumScaled_FS',
-                                  'sumScaled_GL'],
-        'wppsi-iiifascia40-73': ['sumScaled_V', 'sumScaled_P', 'sumScaled_PS',
-                                 'sumScaled_FS', 'sumScaled_GL']
+        'griffithsmentaldevelopmentscales': ['GQ'],
+        'leiterinternationalperformancescale-revised': ['composite_fr', 'BIQ'],
+        'psi-sf': ['parent', 'raw_ts'],
+        'srs': ['parent', 'raw_tot'],
+        'vineland-ii': ['caregiver', 'standard_CD', 'standard_DLSD', 'standard_SD', 'standard_MSD'],
+        'wais-iv': ['composite_VC', 'composite_PR', 'composite_WM',
+                    'composite_PS'],
+        'wais-r': ['composite_V', 'composite_P'],
+        'wisc-iii': ['composite_V', 'composite_P',
+                     'composite_VC', 'composite_PO',
+                     'composite_FD', 'composite_PS'],
+        'wisc-iv': ['composite_VC', 'composite_PR',
+                    'composite_WM', 'composite_PS'],
+        'wppsi': ['composite_V', 'composite_P'],
+        'wppsi-iiifascia26-311': ['composite_V', 'composite_P',
+                                  'composite_GL'],
+        'wppsi-iiifascia40-73': ['composite_V', 'composite_P', 'composite_PS',
+                                 'composite_GL']
         },
-    3: {'ados-2modulo1': ['sarrb_tot', 'comparison_score'],
-        'ados-2modulo2': ['sarrb_tot', 'comparison_score'],
-        'ados-2modulo3': ['sarrb_tot', 'comparison_score'],
+    3: {'ados-2modulo1': ['comparison_score'],
+        'ados-2modulo2': ['comparison_score'],
+        'ados-2modulo3': ['comparison_score'],
         'ados-2modulotoddler': ['sarrb_tot'],
         'griffithsmentaldevelopmentscales': ['GQ'],
         'leiterinternationalperformancescale-revised': ['composite_fr', 'BIQ'],
@@ -158,17 +160,25 @@ select_clm = {
         'ados-2modulotoddler': ['al1.sa_tot', 'al2.sa_tot',
                                 'al1.rrb_tot', 'al2.rrb_tot'],
         'griffithsmentaldevelopmentscales': ['q_A', 'q_B', 'q_C', 'q_D', 'q_E', 'q_F', 'GQ'],
-        'leiterinternationalperformancescale-revised': ['sumScaled_fr', 'sumScaled_BIQ'],
+        'leiterinternationalperformancescale-revised': ['composite_fr', 'BIQ'],
         'psi-sf': ['parent', 'raw_ts'],
         'srs': ['parent', 'raw_rirb', 'raw_tot'],
-        'vineland-ii': ['caregiver', 'sum_CD', 'standard_CD', 'sum_DLSD', 'standard_DLSD',
-                        'sum_SD', 'standard_SD', 'sum_MSD', 'standard_MSD', 'standard_ABC'],
-        'wais-iv': ['sumScaled_FS'],
-        'wais-r': ['sumScaled_FS'],
-        'wisc-iii': ['sumScaled_FS'],
-        'wisc-iv': ['sumScaled_FS'],
-        'wppsi': ['sumScaled_FS'],
-        'wppsi-iiifascia26-311': ['sumScaled_FS'],
-        'wppsi-iiifascia40-73': ['sumScaled_FS']
+        'vineland-ii': ['caregiver', 'standard_CD', 'standard_DLSD',
+                        'standard_SD', 'standard_MSD', 'standard_ABC'],
+        'wais-iv': ['FSIQ'],
+        'wais-r': ['FSIQ'],
+        'wisc-iii': ['FSIQ'],
+        'wisc-iv': ['FSIQ'],
+        'wppsi': ['FSIQ'],
+        'wppsi-iiifascia26-311': ['FSIQ'],
+        'wppsi-iiifascia40-73': ['FSIQ']
         }
 }
+
+shorten_names = {'leiterinternationalperformancescale-revised': 'leiter-r',
+                 'wechsler': 'wechsler',
+                 'srs': 'srs',
+                 'griffithsmentaldevelopmentscales': 'gmds',
+                 'vineland-ii': 'vineland',
+                 'ados': 'ados',
+                 'psi-sf': 'psi-sf'}

@@ -1,6 +1,8 @@
-src/__pycache__
+__pycache__
 .*/
 *.csv
 *.pkl
 data/
 logs/
+tmp/
+utils.py

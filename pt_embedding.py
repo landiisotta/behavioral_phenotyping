@@ -5,12 +5,13 @@ import numpy as np
 import utils as ut
 import torch
 import torch.nn.functional as F
+import logging
 
 
 class Pembeddings:
     def __init__(self, behr, vocab):
         """ Range of possible embeddings to perform on behavioral data
-        TFIDF, GLOVE
+        TFIDF, GLOVE, WORD2VEC
 
         Parameters
         ----------
@@ -44,8 +45,8 @@ class Pembeddings:
         vectorizer = TfidfVectorizer(norm='l2')
         tfidf_mtx = vectorizer.fit_transform(doc_list)
 
-        print("Performing SVD on the TF-IDF matrix...")
-        reducer = TruncatedSVD(n_components=ut.n_dim, random_state=123)
+        logging.info("Performing SVD on the TF-IDF matrix...")
+        reducer = TruncatedSVD(n_components=ut.n_dim_tfidf, random_state=123)
         svd_mtx = reducer.fit_transform(tfidf_mtx)
 
         return pid_list, svd_mtx
@@ -68,14 +69,15 @@ class Pembeddings:
         corpus = self.__build_corpus()
         idx_pairs = self.__get_idx_pairs(corpus, window_size=10)
 
-        W1 = torch.randn(ut.n_dim, len(self.vocab),
+        torch.manual_seed(1234)
+        W1 = torch.randn(ut.n_dim_w2v, len(self.vocab),
                          dtype=torch.float32,
                          requires_grad=True)
-        W2 = torch.randn(len(self.vocab), ut.n_dim,
+        W2 = torch.randn(len(self.vocab), ut.n_dim_w2v,
                          dtype=torch.float32,
                          requires_grad=True)
 
-        for epoch in range(ut.n_epoch):
+        for epoch in range(ut.n_epoch_w2v):
             loss_val = 0
             for data, target in idx_pairs:
                 x = self.__get_input_layer(data).float()
@@ -91,14 +93,15 @@ class Pembeddings:
                 loss.backward()
                 w1 = W1.detach()
                 w2 = W2.detach()
-                w1 -= ut.learning_rate * W1.grad
-                w2 -= ut.learning_rate * W2.grad
+                w1 -= ut.learning_rate_w2v * W1.grad
+                w2 -= ut.learning_rate_w2v * W2.grad
 
                 W1.grad.zero_()
                 W2.grad.zero_()
 
             if epoch % 10 == 0:
-                print(f'Loss at epoch {epoch}: {loss_val/len(idx_pairs)}')
+                logging.info(f'Loss at epoch {epoch}: {loss_val/len(idx_pairs)}')
+        logging.info(f'Loss at epoch {epoch}: {loss_val/len(idx_pairs)}')
 
         p_emb = []
         pid_list = []
@@ -126,13 +129,13 @@ class Pembeddings:
 
         corpus = self.__build_corpus()
         coocc_dict = self.__build_cooccur(corpus, window_size=10)
-
-        model = glove.Glove(coocc_dict, alpha=0.75, x_max=100.0, d=ut.n_dim)
-        print("\nTraining Glove embeddings...")
-        for epoch in range(ut.n_epoch):
-            err = model.train(batch_size=ut.batch_size, step_size=0.01)
+        model = glove.Glove(coocc_dict, alpha=0.75, x_max=10.0, d=ut.n_dim_glove, seed=1234)
+        logging.info("\nTraining Glove embeddings...")
+        for epoch in range(ut.n_epoch_glove):
+            err = model.train(batch_size=ut.batch_size_glove, step_size=ut.learning_rate_glove)
             if epoch % 10 == 0:
-                print("epoch %d, error %.3f" % (epoch, err), flush=True)
+                logging.info("epoch %d, error %.3f" % (epoch, err))
+        logging.info("epoch %d, error %.3f" % (epoch, err))
 
         wemb = model.W + model.ContextW  # as suggested in Pennington et al.
         p_emb = []
@@ -171,15 +174,13 @@ class Pembeddings:
     def __build_corpus(self):
         """random shuffle terms in time slots
 
-        Parameters
-        ----------
-        behr
-            dictionary {pid: trm sequence}
         Return
         ------
         dictionary
             {pid: term list set and shuffles wrt to time slots F1-F5}
         """
+        # set seed
+        np.random.seed(0)  # 1234 (3 ns subtypes); 47 (7 ns subtypes)
         # We structure behrs wrt timeframes to learn word embeddings.
         # Structure of bvect = [Penc, aoa, tokens].
         behr_tf = {}
@@ -279,7 +280,6 @@ class Pembeddings:
 
                     # Weight by inverse of distance between words
                     increment = 1.0 / float(distance)
-
                     # Build co-occurrence matrix symmetrically (pretend we
                     # are calculating right contexts as well)
                     if left_id in cooccurrences[center_id]:
@@ -288,5 +288,4 @@ class Pembeddings:
                     else:
                         cooccurrences[center_id][left_id] = increment
                         cooccurrences[left_id][center_id] = increment
-
         return cooccurrences

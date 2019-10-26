@@ -47,13 +47,13 @@ class DataStatistics:
         logger.info('N of subjects: %d\n', len(dem.ID_SUBJ.unique()))
         logger.info('%s\n', pd.crosstab(dem.SEX, columns='count'))
         logger.info('%s\n',
-                     dem.describe())
+                    dem.describe())
 
         logger.info("Instrument list:")
         for ins in sorted(enc.INSTRUMENT.unique()):
             logger.info('%s', ins)
         logger.info('\n%s\n',
-                     enc.describe())
+                    enc.describe())
         # Consider assessment as number of administered instruments
         ass_dict = {}
         for _, row in enc.iterrows():
@@ -64,7 +64,10 @@ class DataStatistics:
         logger.info('%s\n', pd.DataFrame(count_ass).describe())
 
         # return period span
-        logger.info(f'Period span: {enc.DOA.min()} -- {enc.DOA.max()}\n')
+        doa_vec = [list(map(int, el.split('/'))) for el in enc.DOA.tolist()]
+        doa_min = min(doa_vec, key=lambda x: (x[-1], x[1]))
+        doa_max = max(doa_vec, key=lambda x: (x[-1], x[1]))
+        logger.info(f'Period span: {doa_min} -- {doa_max}\n')
 
         # plot histogram with number of encounters
         plt.figure(figsize=(40, 20))
@@ -93,5 +96,3 @@ class DataStatistics:
         dt_dob = datetime.strptime(dob, '%d/%m/%Y')
         current_age = (datetime.today() - dt_dob).days / days_in_year
         return current_age
-
-

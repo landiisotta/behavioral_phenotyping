@@ -13,3 +13,5 @@ google-api-python-client
 gsheets
 oauth2client
 httplib2
+seaborn
+torch

@@ -1,13 +1,20 @@
 import umap
 from matplotlib import pyplot as plt
 from scipy.cluster.hierarchy import dendrogram, linkage
+from sklearn.cluster import KMeans
 import pandas as pd
 from bokeh.models import LinearColorMapper, BasicTicker, PrintfTickFormatter, \
     ColorBar, HoverTool, ColumnDataSource, CategoricalColorMapper
-from bokeh.plotting import figure, show, output_notebook
+from bokeh.plotting import figure, show, output_notebook, output_file, save
+from bokeh.io import export_svgs
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from math import pi
+import utils as ut
+# Eliminate verbose warnings from Numba
+import warnings
+
+warnings.filterwarnings('ignore')
 
 
 class Visualization:
@@ -25,7 +32,8 @@ class Visualization:
         """
         self.c_out = c_out  # List of colors to exclude
         self.col_dict = col_dict  # Dictionary of colors from matplotlib
-        colormap = [c for c in self.col_dict if c not in self.c_out]
+        # colormap = [c for c in self.col_dict if c not in self.c_out]
+        colormap = ut.colormap
         self.colormap = colormap
         self.subject_info = subject_info
 
@@ -80,7 +88,6 @@ class Visualization:
             word embeddings as stored in vocabulary
         vocab: dictionary
             idx_to_bt dictionary
-        fig_weight, fig_height: int
         **kwargs: n_neighbors, min_dist for UMAP module
         """
         scaler = MinMaxScaler()
@@ -124,10 +131,25 @@ class Visualization:
             Object with both scaled and raw values. A column with subcluster and
             subject id is added.
         """
+        label = {'0': 'SI',
+                 '1': 'SII',
+                 '2': 'SIII',
+                 '3': 'SIV',
+                 '4': 'SV',
+                 '5': 'SVI',
+                 '6': 'SVII',
+                 '7': 'SVIII',
+                 '8': 'SIX',
+                 '9': 'SX',
+                 '10': 'SXI',
+                 '11': 'SXII',
+                 '12': 'SXIII',
+                 '13': 'SXIV'}
+
         X_scaled = pd.DataFrame(X_scaled.sort_index().stack(),
                                 columns=['score_sc']).reset_index()
         X_scaled.columns = ['clpid', 'feat', 'score_sc']
-        X_scaled['clpid'] = ['-'.join([str(subc_dict[pid]), str(pid)])
+        X_scaled['clpid'] = ['-'.join([label[str(subc_dict[pid])], str(pid)])
                              for pid in X_scaled.clpid]
         X_scaled = X_scaled.sort_values(by='feat')
 
@@ -164,6 +186,15 @@ class Visualization:
             Dataframe with raw scores and scaled scores for subclusters.
             clpid columns with joined subcluster label and pid.
         """
+        label = {'0': 'SI',
+                 '1': 'SII',
+                 '2': 'SIII',
+                 '3': 'SIV',
+                 '4': 'SV',
+                 '5': 'SVI',
+                 '6': 'SVII',
+                 '7': 'SVIII'}
+
         # Build feature list
         c_lab = sorted(set(['::'.join(lab.split('::')[:-1])
                             for lab in vocab.keys()]))
@@ -189,7 +220,7 @@ class Visualization:
                         val_dict.setdefault(f, list()).append(np.mean(dict_age[vect][f]))
                 except KeyError:
                     val_dict.setdefault(f, list()).append(None)
-            indx.append(('-'.join([str(subc_dict[vect[0]]), vect[0]]), vect[1]))
+            indx.append(('-'.join([label[str(subc_dict[vect[0]])], vect[0]]), vect[1]))
 
         # create dataframe with cl-pi as index
         emb_df = pd.DataFrame(val_dict, index=indx)
@@ -225,8 +256,96 @@ class Visualization:
                                umap_mtx,
                                pid_subc_list,
                                fig_height,
-                               fig_width):
+                               fig_width,
+                               save_fig=None):
         """Scatterplot and dendrogram for clustering. The elbow method plot is also displayed.
+
+        Parameters
+        ----------
+        X: numpy array or dataframe
+            dendrogram input
+        umap_mtx: np array
+            Umap projections of patients
+        pid_subc_list: list of tuples
+            list of pid and subclusters tuples as ordered in X
+        fig_height, fig_width: int
+        save_fig: str name of the figure (only method and level)
+        """
+
+        # Scale embedding data matrix
+        if not isinstance(X, pd.DataFrame):
+            scaler = MinMaxScaler()
+            X = scaler.fit_transform(X)
+
+        subc_list = [el[1] for el in pid_subc_list]
+        label = {'0': 'Subgroup I',
+                 '1': 'Subgroup II',
+                 '2': 'Subgroup III',
+                 '3': 'Subgroup IV',
+                 '4': 'Subgroup V',
+                 '5': 'Subgroup VI',
+                 '6': 'Subgroup VII',
+                 '7': 'Subgroup VIII',
+                 '8': 'Subgroup IX',
+                 '9': 'Subgroup X',
+                 '10': 'Subgroup XI',
+                 '11': 'Subgroup XII',
+                 '12': 'Subgroup XIII',
+                 '13': 'Subgroup XIV'}
+        colors = [self.colormap[cl] for cl in sorted(list(set(subc_list)))]
+        # Bokeh scatterplot
+        self._scatter_plot(umap_mtx, pid_subc_list, colors, fig_width, fig_height, label, save_fig)
+
+        # Dendrogram
+        linked = linkage(X, 'ward')
+        # Color mapping
+        dflt_col = "#808080"  # Unclustered gray
+        # * rows in Z correspond to "inverted U" links that connect clusters
+        # * rows are ordered by increasing distance
+        # * if the colors of the connected clusters match, use that color for link
+        link_cols = {}
+        for idx, lidx in enumerate(linked[:, :2].astype(int)):
+            c1, c2 = (link_cols[x] if x > len(linked) else colors[subc_list[x]]
+                      for x in lidx)
+            link_cols[idx + 1 + len(linked)] = c1 if c1 == c2 else dflt_col
+
+        plt.figure(figsize=(5, 5))
+        dendrogram(Z=linked,
+                   # labels=np.array([str(int(i) + 1) for i in subc_list]),
+                   labels=np.array([''] * len(subc_list)),
+                   color_threshold=None,
+                   leaf_font_size=5, leaf_rotation=0,
+                   link_color_func=lambda x: link_cols[x])
+        if save_fig is None:
+            plt.show()
+        else:
+            plt.savefig(f'./data/{save_fig}-dendrogram.eps')
+            plt.close()
+
+        # Elbow method with clusters ranging from 2 to 15
+        plt.figure(figsize=(5, 5))
+        last = linked[-15:, 2]
+        last_rev = last[::-1]
+        idxs = np.arange(1, len(last) + 1, dtype=int)
+        plt.plot(idxs, last_rev)
+
+        acceleration = np.diff(last, 2)  # 2nd derivative of the distances
+        acceleration_rev = acceleration[::-1]
+        plt.plot(idxs[:-2] + 1, acceleration_rev)
+        plt.xticks(idxs)
+        if save_fig is None:
+            plt.show()
+        else:
+            plt.savefig(f'./data/{save_fig}-elbow.eps')
+            plt.close()
+
+    def scatterplot_kmeans(self,
+                           X,
+                           umap_mtx,
+                           pid_subc_list,
+                           fig_height,
+                           fig_width):
+        """Scatterplot and elbow method for KMeans clustering.
 
         Parameters
         ----------
@@ -243,6 +362,8 @@ class Visualization:
         if not isinstance(X, pd.DataFrame):
             scaler = MinMaxScaler()
             X = scaler.fit_transform(X)
+        else:
+            X = X.to_numpy()
 
         subc_list = [el[1] for el in pid_subc_list]
 
@@ -250,43 +371,27 @@ class Visualization:
         # Bokeh scatterplot
         self._scatter_plot(umap_mtx, pid_subc_list, colors, fig_width, fig_height)
 
-        # Dendrogram
-        linked = linkage(X, 'ward')
-        # Color mapping
-        dflt_col = "#808080"  # Unclustered gray
-        # * rows in Z correspond to "inverted U" links that connect clusters
-        # * rows are ordered by increasing distance
-        # * if the colors of the connected clusters match, use that color for link
-        link_cols = {}
-        for idx, lidx in enumerate(linked[:, :2].astype(int)):
-            c1, c2 = (link_cols[x] if x > len(linked) else colors[subc_list[x]]
-                      for x in lidx)
-            link_cols[idx + 1 + len(linked)] = c1 if c1 == c2 else dflt_col
-
-        plt.figure(figsize=(fig_height, fig_width))
-        dendrogram(Z=linked,
-                   labels=np.array(subc_list),
-                   color_threshold=None,
-                   leaf_font_size=5, leaf_rotation=0,
-                   link_color_func=lambda x: link_cols[x])
-        plt.show()
-
         # Elbow method with clusters ranging from 2 to 15
-        last = linked[-15:, 2]
-        last_rev = last[::-1]
-        idxs = np.arange(1, len(last) + 1, dtype=int)
-        plt.plot(idxs, last_rev)
+        inertia = []  # Sum of square differences of samples from cluster centers
+        K = np.arange(1, 15, dtype=int)
 
-        acceleration = np.diff(last, 2)  # 2nd derivative of the distances
-        acceleration_rev = acceleration[::-1]
-        plt.plot(idxs[:-2] + 1, acceleration_rev)
-        plt.xticks(idxs)
+        for k in K:
+            kmean_model = KMeans(n_clusters=k).fit(X)
+            inertia.append(kmean_model.inertia_)
+
+        plt.plot(K, inertia)
+
+        acceleration = np.diff(inertia, 2)  # 2nd derivative of the distances
+        plt.plot(K[:-2] + 1, acceleration)
+        plt.xticks(K)
         plt.show()
 
     @staticmethod
     def heatmap_feat(X_scaled,
                      fig_height,
-                     fig_width):
+                     fig_width,
+                     save_html=None,
+                     save_svg=None):
         """ Bokeh heatmap for the visualization of scaled scores in the
         different subclusters. Hovertool displaying subject info and raw
         scores.
@@ -296,7 +401,20 @@ class Visualization:
         X_scaled: dataframe
             Feature scaled scores
         fig_height, fig_width: int
+        save_html: str file name
+        save_svg: str svg file name
         """
+        X_scaled = X_scaled.replace({'F1::psi-sf::padre::raw_ts': 'F1::psi-sf::caretakerm::raw_ts',
+                                     'F1::psi-sf::madre::raw_ts': 'F1::psi-sf::caretakerf::raw_ts',
+                                     'F2::psi-sf::padre::raw_ts': 'F2::psi-sf::caretakerm::raw_ts',
+                                     'F2::psi-sf::madre::raw_ts': 'F2::psi-sf::caretakerf::raw_ts',
+                                     'F3::psi-sf::padre::raw_ts': 'F3::psi-sf::caretakerm::raw_ts',
+                                     'F3::psi-sf::madre::raw_ts': 'F3::psi-sf::caretakerf::raw_ts',
+                                     'F4::psi-sf::padre::raw_ts': 'F4::psi-sf::caretakerm::raw_ts',
+                                     'F4::psi-sf::madre::raw_ts': 'F4::psi-sf::caretakerf::raw_ts',
+                                     'F5::psi-sf::padre::raw_ts': 'F5::psi-sf::caretakerm::raw_ts',
+                                     'F5::psi-sf::madre::raw_ts': 'F5::psi-sf::caretakerf::raw_ts'
+                                     })
 
         colors = ["#75968f", "#a5bab7", "#c9d9d3", "#e2e2e2",
                   "#dfccce", "#ddb7b1", "#cc7878", "#933b41",
@@ -339,15 +457,24 @@ class Visualization:
 
         color_bar = ColorBar(color_mapper=mapper, major_label_text_font_size="8pt",
                              ticker=BasicTicker(desired_num_ticks=len(colors)),
-                             formatter=PrintfTickFormatter(format="%d.2"),
+                             formatter=PrintfTickFormatter(format="%.2f"),
                              label_standoff=6, border_line_color=None, location=(0, 0))
         p.add_layout(color_bar, 'right')
-        show(p)
+        if save_html is not None:
+            output_file(f'./data/{save_html}.html')
+            save(p)
+        elif save_svg is not None:
+            p.output_backend = 'svg'
+            export_svgs(p, f'./data/{save_svg}.svg')
+        else:
+            show(p)
 
     @staticmethod
     def heatmap_emb(emb_df_scaled,
                     fig_height,
-                    fig_width):
+                    fig_width,
+                    save_html=None,
+                    save_svg=None):
         """ Bokeh heatmap of scaled scores for patient embedding subclusters.
         Hovertool with subject info and subject raw scores.
 
@@ -356,8 +483,12 @@ class Visualization:
         emb_df_scaled: dataframe
             output of data_heatmap_emb
         fig_height, fig_width: int
+        save_html: str file name
+        save_svg: str file name
         """
 
+        emb_df_scaled = emb_df_scaled.replace({'psi-sf::padre::raw_ts': 'psi-sf::caretakerm::raw_ts',
+                                               'psi-sf::madre::raw_ts': 'psi-sf::caretakerf::raw_ts'})
         colors = ["#75968f", "#a5bab7", "#c9d9d3", "#e2e2e2",
                   "#dfccce", "#ddb7b1", "#cc7878", "#933b41",
                   "#550b1d"]
@@ -401,17 +532,26 @@ class Visualization:
 
         color_bar = ColorBar(color_mapper=mapper, major_label_text_font_size="8pt",
                              ticker=BasicTicker(desired_num_ticks=len(colors)),
-                             formatter=PrintfTickFormatter(format="%d.2"),
+                             formatter=PrintfTickFormatter(format="%.2f"),
                              label_standoff=6, border_line_color=None, location=(0, 0))
         p.add_layout(color_bar, 'right')
-        show(p)
+        if save_html is not None:
+            output_file(f'./data/{save_html}.html')
+            save(p)
+        elif save_svg is not None:
+            p.output_backend = 'svg'
+            export_svgs(p, f'./data/{save_svg}.svg')
+        else:
+            show(p)
 
     def _scatter_plot(self,
                       umap_mtx,
                       pid_subc_list,
                       colors,
                       fig_height,
-                      fig_width):
+                      fig_width,
+                      label,
+                      save_fig):
         """Bokeh scatterplot to visualize in jupyter clusters and subject info.
 
         Parameters
@@ -424,21 +564,31 @@ class Visualization:
             Color list
         fig_height, fig_width: int
             Figure dimensions
+        label: dict dictionary of class numbers and subtype labels
+        save_fig: str file name
         """
 
         pid_list = list(map(lambda x: x[0], pid_subc_list))
         subc_list = list(map(lambda x: x[1], pid_subc_list))
+        df_dict = {'x': umap_mtx[:, 0].tolist(),
+                   'y': umap_mtx[:, 1].tolist(),
+                   'pid_list': pid_list,
+                   'subc_list': subc_list}
+
+        df = pd.DataFrame(df_dict).sort_values('subc_list')
 
         source = ColumnDataSource(dict(
-            x=umap_mtx[:, 0].tolist(),
-            y=umap_mtx[:, 1].tolist(),
-            pid=pid_list,
-            subc=list(map(lambda x: str(x), subc_list)),
-            bdate=[self.subject_info[pid].dob for pid in pid_list],
-            sex=[self.subject_info[pid].sex for pid in pid_list],
-            n_enc=[self.subject_info[pid].n_enc for pid in pid_list]))
+            x=df['x'].tolist(),
+            y=df['y'].tolist(),
+            pid=df['pid_list'].tolist(),
+            subc=list(map(lambda x: label[str(x)], df['subc_list'].tolist())),
+            col_class=[str(i) for i in df['subc_list'].tolist()],
+            bdate=[self.subject_info[pid].dob for pid in df['pid_list'].tolist()],
+            sex=[self.subject_info[pid].sex for pid in df['pid_list'].tolist()],
+            n_enc=[self.subject_info[pid].n_enc for pid in df['pid_list'].tolist()]))
 
-        cmap = CategoricalColorMapper(factors=[str(lab) for lab in range(len(set(subc_list)))],
+        labels = [str(i) for i in df['subc_list']]
+        cmap = CategoricalColorMapper(factors=sorted(pd.unique(labels)),
                                       palette=colors)
         TOOLTIPS = [('pid', '@pid'),
                     ('subc', '@subc'),
@@ -450,10 +600,12 @@ class Visualization:
 
         output_notebook()
         p = figure(plot_width=fig_width * 50, plot_height=fig_height * 50,
-                   tools=plotTools)
+                   tools=plotTools, title='Quantitative features')
         p.add_tools(HoverTool(tooltips=TOOLTIPS))
         p.circle('x', 'y', legend='subc', source=source,
-                 color={"field": 'subc', "transform": cmap})
+                 color={'field': 'col_class',
+                        # "field": 'subc',
+                        "transform": cmap}, size=8)
         p.xaxis.major_tick_line_color = None
         p.xaxis.minor_tick_line_color = None
         p.yaxis.major_tick_line_color = None
@@ -461,7 +613,12 @@ class Visualization:
         p.xaxis.major_label_text_color = None
         p.yaxis.major_label_text_color = None
         p.grid.grid_line_color = None
-        show(p)
+        p.legend.location = 'bottom_right'
+        if save_fig is None:
+            show(p)
+        else:
+            p.output_backend = 'svg'
+            export_svgs(p, f'./data/{save_fig}-scatterplot.svg')
 
     def _modify_df(self, df):
         """ Adds subject info to dataframe for heatmaps

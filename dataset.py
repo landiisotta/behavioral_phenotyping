@@ -8,6 +8,7 @@ import pandas as pd
 import logging
 from dataclasses import dataclass
 from basic_statistics import DataStatistics
+import numpy as np
 
 
 # Dataclasses to store patient demographics,
@@ -63,11 +64,12 @@ def access_db():
     logging.info('Dumping all tables')
     df_tables = {}
     for table_name in metadata.tables:
+        # ADDED THIS TO STOP IMPORTING NEW DATA FOR NOW
         df_tables[table_name] = pd.read_sql_table(table_name,
                                                   con=conn,
                                                   parse_dates=['date_birth', 'date_ass'],
-                                                  index_col='id').drop('form_info',
-                                                                       axis=1)
+                                                  index_col='id').query(
+            'form_info <= datetime(2019, 10, 5)').drop('form_info', axis=1)
     return df_tables
 
 
@@ -85,6 +87,9 @@ def data_wrangling(tables_dict):
         reduced dictionary without excluded tables and subjects (rows)
     """
     adult_subj = tables_dict['ados-2modulo4'].id_subj.unique()
+    # added lab1680 on the 1st of October 2019, new entry with only WISC-IV
+    # added also lab1353/lab1152, only psi-sf/srs available
+    adult_subj = np.append(adult_subj, ['lab1680', 'lab1353', 'lab1152'])
     logging.info(f'Dropped {len(adult_subj)} subjects')
 
     # names of the tables to drop from the dictionary
@@ -101,7 +106,7 @@ def data_wrangling(tables_dict):
 
 
 def cohort_info(tables_dict):
-    """Store instances of Pinfo and Penc  classes in dictionaries
+    """Store instances of Pinfo and Penc classes in dictionaries
 
     Parameters
     ----------
@@ -119,8 +124,8 @@ def cohort_info(tables_dict):
     enc_dict = {}
     for tn, df in tables_dict.items():
         for _, row in df.iterrows():
-            ass_date = _correct_datetime(row.date_ass)
-            birth_date = _correct_datetime(row.date_birth)
+            ass_date = __correct_datetime(row.date_ass)
+            birth_date = __correct_datetime(row.date_birth)
             if row.id_subj in enc_dict:
                 enc_dict[row.id_subj].doa_instrument.append((ass_date, tn))
             else:
@@ -159,6 +164,12 @@ def age_ass(dob, doa):
     float
         age of assessment
     """
+    # dob = pd.Timestamp(year=int(dob.split('/')[2]),
+    #                    month=int(dob.split('/')[1]),
+    #                    day=int(dob.split('/')[0]))
+    # doa = pd.Timestamp(year=int(doa.split('/')[2]),
+    #                    month=int(doa.split('/')[1]),
+    #                    day=int(doa.split('/')[0]))
     dob = pd.Timestamp(dob)
     doa = pd.Timestamp(doa)
     days_in_year = 365.2425
@@ -166,7 +177,7 @@ def age_ass(dob, doa):
     return aoa
 
 
-def _correct_datetime(date_ts):
+def __correct_datetime(date_ts):
     """
     Parameters
     ----------

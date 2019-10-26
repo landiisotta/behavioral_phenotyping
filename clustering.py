@@ -3,6 +3,7 @@ from sklearn.cluster import AgglomerativeClustering, KMeans
 from sklearn.metrics import silhouette_score, adjusted_mutual_info_score, fowlkes_mallows_score
 from sklearn.preprocessing import MinMaxScaler
 from scipy.cluster.hierarchy import linkage
+import logging
 
 
 class HclustEmbeddings:
@@ -18,7 +19,7 @@ class HclustEmbeddings:
                        mtx,
                        n_iter,
                        subsampl):
-        """Iterate clustering of subsets anf find best number of clusters
+        """Iterate clustering of subsets and find best number of clusters
 
         Parameters
         ----------
@@ -51,12 +52,12 @@ class HclustEmbeddings:
             # print("(*) Iter {0} -- N clusters {1}".format(it, best_n_clu))
             n_cl_selected.append(best_n_clu)
         unique, counts = np.unique(n_cl_selected, return_counts=True)
-        print("Counts of N clusters:")
-        print("N clusters -- Count")
+        logging.info("Counts of N clusters:")
+        logging.info("N clusters -- Count")
         for un, ct in dict(zip(unique, counts)).items():
-            print(un, ct)
+            logging.info(un, ct)
         best_n_clu = unique[np.argmax(counts)]
-        print("\nBest N cluster:{0}".format(best_n_clu))
+        logging.info("\nBest N cluster:{0}".format(best_n_clu))
         return best_n_clu
 
     def elbow_method(self,
@@ -113,13 +114,11 @@ class HclustEmbeddings:
         hclu = AgglomerativeClustering(n_clusters=n_clu)
         lab_cl = hclu.fit_predict(mtx)
         silh = silhouette_score(mtx, lab_cl)
-        print('(*) Number of clusters %d -- Silhouette score %.2f' % (n_clu, silh))
+        logging.info('(*) Number of clusters %d -- Silhouette score %.2f' % (n_clu, silh))
 
         num_count = np.unique(lab_cl, return_counts=True)[1]
         for idx, nc in enumerate(num_count):
-            print("Cluster {0} -- Numerosity {1}".format(idx, nc))
-        print('\n')
-        print('\n')
+            logging.info("Cluster {0} -- Numerosity {1}".format(idx, nc))
 
         return {pid: cl for pid, cl in zip(pid_list, lab_cl)}
 
@@ -170,12 +169,12 @@ class HclustFeatures:
             #                                               best_n_clu))
             n_cl_selected.append(best_n_clu)
         unique, counts = np.unique(n_cl_selected, return_counts=True)
-        print("Counts of N clusters:")
-        print("N clusters -- Count")
+        logging.info("Counts of N clusters:")
+        logging.info("N clusters -- Count")
         for un, ct in dict(zip(unique, counts)).items():
-            print(un, ct)
+            logging.info(un, ct)
         best_n_clu = unique[np.argmax(counts)]
-        print("\nBest N cluster:{0}".format(best_n_clu))
+        logging.info("\nBest N cluster:{0}".format(best_n_clu))
         return best_n_clu
 
     def elbow_method(self,
@@ -223,13 +222,11 @@ class HclustFeatures:
         hclu = AgglomerativeClustering(n_clusters=n_clu)
         lab_cl = hclu.fit_predict(df_scaled)
         silh = silhouette_score(df_scaled, lab_cl)
-        print('(*) Number of clusters %d -- Silhouette score %.2f' % (n_clu, silh))
+        logging.info('(*) Number of clusters %d -- Silhouette score %.2f' % (n_clu, silh))
 
         num_count = np.unique(lab_cl, return_counts=True)[1]
         for idx, nc in enumerate(num_count):
-            print("Cluster {0} -- Numerosity {1}".format(idx, nc))
-        print('\n')
-        print('\n')
+            logging.info("Cluster {0} -- Numerosity {1}".format(idx, nc))
 
         return {pid: cl for pid, cl in zip(df_scaled.index, lab_cl)}
 
@@ -278,12 +275,12 @@ class KMeansEmbeddings:
             # print("(*) Iter {0} -- N clusters {1}".format(it, best_n_clu))
             n_cl_selected.append(best_n_clu)
         unique, counts = np.unique(n_cl_selected, return_counts=True)
-        print("Counts of N clusters:")
-        print("N clusters -- Count")
+        logging.info("Counts of N clusters:")
+        logging.info("N clusters -- Count")
         for un, ct in dict(zip(unique, counts)).items():
-            print(un, ct)
+            logging.info(un, ct)
         best_n_clu = unique[np.argmax(counts)]
-        print("\nBest N cluster:{0}".format(best_n_clu))
+        logging.info("\nBest N cluster:{0}".format(best_n_clu))
         return best_n_clu
 
     def elbow_method(self,
@@ -343,13 +340,11 @@ class KMeansEmbeddings:
         kmclu = KMeans(n_clusters=n_clu)
         lab_cl = kmclu.fit_predict(mtx)
         silh = silhouette_score(mtx, lab_cl)
-        print('(*) Number of clusters %d -- Silhouette score %.2f' % (n_clu, silh))
+        logging.info('(*) Number of clusters %d -- Silhouette score %.2f' % (n_clu, silh))
 
         num_count = np.unique(lab_cl, return_counts=True)[1]
         for idx, nc in enumerate(num_count):
-            print("Cluster {0} -- Numerosity {1}".format(idx, nc))
-        print('\n')
-        print('\n')
+            logging.info("Cluster {0} -- Numerosity {1}".format(idx, nc))
 
         return {pid: cl for pid, cl in zip(pid_list, lab_cl)}
 
@@ -398,12 +393,12 @@ class KMeansFeatures:
             #                                               best_n_clu))
             n_cl_selected.append(best_n_clu)
         unique, counts = np.unique(n_cl_selected, return_counts=True)
-        print("Counts of N clusters:")
-        print("N clusters -- Count")
+        logging.info("Counts of N clusters:")
+        logging.info("N clusters -- Count")
         for un, ct in dict(zip(unique, counts)).items():
-            print(un, ct)
+            logging.info(un, ct)
         best_n_clu = unique[np.argmax(counts)]
-        print("\nBest N cluster:{0}".format(best_n_clu))
+        logging.info("\nBest N cluster:{0}".format(best_n_clu))
         return best_n_clu
 
     def elbow_method(self,
@@ -455,13 +450,11 @@ class KMeansFeatures:
         kmclu = KMeans(n_clusters=n_clu)
         lab_cl = kmclu.fit_predict(df_scaled)
         silh = silhouette_score(df_scaled, lab_cl)
-        print('(*) Number of clusters %d -- Silhouette score %.2f' % (n_clu, silh))
+        logging.info('(*) Number of clusters %d -- Silhouette score %.2f' % (n_clu, silh))
 
         num_count = np.unique(lab_cl, return_counts=True)[1]
         for idx, nc in enumerate(num_count):
-            print("Cluster {0} -- Numerosity {1}".format(idx, nc))
-        print('\n')
-        print('\n')
+            logging.info("Cluster {0} -- Numerosity {1}".format(idx, nc))
 
         return {pid: cl for pid, cl in zip(df_scaled.index, lab_cl)}
 
@@ -484,6 +477,7 @@ def compare_clustering(cl1, cl2, method):
         desired score
     """
     if method == 'AMI':
-        return adjusted_mutual_info_score(cl1, cl2)
+        return adjusted_mutual_info_score(cl1, cl2,
+                                          average_method='arithmetic')
     else:
         return fowlkes_mallows_score(cl1, cl2)
